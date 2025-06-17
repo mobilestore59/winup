@@ -14,7 +14,7 @@ class CustomButton(DefaultButton):
             "font-size": "14px",
             "font-weight": "bold",
             "border-radius": "8px",
-            "padding": "10px 15px",
+            "pgadding": "10px 15px",
         }
         
         # We'll allow users to override our custom style with their own props

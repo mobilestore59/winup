@@ -28,6 +28,9 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
 *   **Declarative & Pythonic UI:** Build complex layouts with simple `Row` and `Column` objects instead of clunky box layouts.
 *   **Component-Based Architecture:** Use the `@component` decorator to create modular and reusable UI widgets from simple functions.
 *   **Powerful Styling System:** Style your widgets with simple Python dictionaries using `props`. Create global "CSS-like" classes with `style.add_style_dict`.
+*   **Full Application Shell:** Build professional applications with a declarative API for `MenuBar`, `ToolBar`, `StatusBar`, and `SystemTrayIcon`.
+*   **Asynchronous Task Runner:** Run long-running operations in the background without freezing your UI using the simple `@tasks.run` decorator.
+*   **Performance by Default:** Includes an opt-in `@memo` decorator to cache component renders and prevent needless re-computation.
 *   **Advanced Extensibility:**
     *   **Widget Factory:** Replace any default widget with your own custom implementation (e.g., C++ based) using `ui.register_widget()`.
     *   **Multiple Windows:** Create and manage multiple independent windows for complex applications like tool palettes or music players.
@@ -49,6 +52,12 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
 pip install winup watchdog
 ```
 *The `watchdog` library is required for the Hot Reloading feature.*
+
+```bash
+winup init
+```
+
+*This makes an app template ready for use, if LoadUp doesn't work, use PyInstaller instead.*
 
 ---
 
@@ -277,6 +286,83 @@ if __name__ == "__main__":
     winup.run(main_component=App)
 ```
 
+### Application Shell
+
+WinUp provides simple, declarative classes to build the shell of a professional application. You can define menus, toolbars, and status bars and pass them directly to the `winup.run()` function.
+
+```python
+import winup
+from winup import ui, shell
+
+# 1. Define handlers for your actions
+def on_new(): print("Action: New")
+def on_quit(): winup.core.window._winup_app.app.quit()
+def on_about(): winup.ui.dialogs.show_message("About", "WinUp Shell Demo")
+
+# 2. Define the shell components
+app_menu = shell.MenuBar({
+    "&File": { "New": on_new, "---": None, "Quit": on_quit },
+    "&Help": { "About": on_about }
+})
+
+app_toolbar = shell.ToolBar({ "New": on_new }) # Add icons via the icon_dir argument
+app_statusbar = shell.StatusBar()
+
+# 3. Create your main component
+def App():
+    # The status bar is globally accessible after creation
+    shell.StatusBar.show_message("Welcome to WinUp!", 5000)
+    return ui.Label("App with a full shell!")
+
+# 4. Pass the shell components to the run function
+if __name__ == "__main__":
+    winup.run(
+        main_component=App,
+        title="App Shell Demo",
+        menu_bar=app_menu,
+        tool_bar=app_toolbar,
+        status_bar=app_statusbar
+    )
+```
+*You can also add a `shell.SystemTrayIcon` for applications that need to run in the background.*
+
+### Asynchronous Tasks
+
+Never freeze your UI again. The `@tasks.run` decorator makes it trivial to run any function on a background thread, with callbacks for success or failure.
+
+```python
+import time
+from winup import shell, tasks
+
+def on_task_complete(result):
+    """This function is called on the main UI thread when the task succeeds."""
+    print(f"Success! Result: {result}")
+    shell.StatusBar.show_message(f"Task finished: {result}", 4000)
+
+def on_task_error(error_details):
+    """This function is called on the main UI thread if the task fails."""
+    exception, trace = error_details
+    print(f"Error in background task: {exception}")
+    shell.StatusBar.show_message(f"Error: {exception}", 4000)
+
+@tasks.run(on_finish=on_task_complete, on_error=on_task_error)
+def fetch_data_from_server(url: str):
+    """
+    A simulated long-running task. This will not block the UI.
+    The decorator will pass its return value to 'on_finish'.
+    """
+    print("Starting background task...")
+    shell.StatusBar.show_message("Fetching data...")
+    time.sleep(2) # Simulate network latency
+    if "fail" in url:
+        raise ConnectionError("Could not connect to server.")
+    return f"Data from {url}"
+
+# You can now call this function from any event handler (e.g., a button click)
+# fetch_data_from_server("my-api.com/data")
+# fetch_data_from_server("my-api.com/fail")
+```
+
 ### Developer Tools
 
 **Hot Reloading:**
@@ -319,8 +405,33 @@ if __name__ == "__main__":
 ```
 *This setup allows you to see UI changes instantly just by saving your component file.*
 
+**Performance & Memoization:**
+For UIs that render large amounts of data, you can significantly improve performance by caching component results. The `@winup.memo` decorator automatically caches the widget created by a component. If the component is called again with the same arguments, the cached widget is returned instantly instead of being re-created.
+
+```python
+import winup
+from winup import ui
+
+# By adding @winup.memo, this component will only be re-created
+# if the 'color' argument changes.
+@winup.memo
+def ColorBlock(color: str):
+    return ui.Frame(props={"background-color": color, "min-height": "20px"})
+
+def App():
+    # In this list, ColorBlock('#AABBCC') will only be called once.
+    # The framework will then reuse the cached widget for the other two instances.
+    return ui.Column(children=[
+        ColorBlock(color="#AABBCC"),
+        ColorBlock(color="#EEEEEE"),
+        ColorBlock(color="#AABBCC"),
+        ColorBlock(color="#AABBCC"),
+    ])
+```
+
 **Profiler:**
 Simply add the `@profiler.measure()` decorator to any function to measure its execution time. Results are printed to the console when the application closes.
+The profiler also automatically tracks the performance of the memoization cache, showing you hits, misses, and the overall hit ratio.
 
 ```python
 from winup.tools import profiler

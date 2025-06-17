@@ -4,6 +4,14 @@ import functools
 class Profiler:
     def __init__(self):
         self.results = {}
+        self.memo_hits = 0
+        self.memo_misses = 0
+
+    def record_memo_hit(self):
+        self.memo_hits += 1
+
+    def record_memo_miss(self):
+        self.memo_misses += 1
 
     def measure(self, func_name=None):
         """
@@ -29,11 +37,21 @@ class Profiler:
     def print_results(self):
         """Prints all stored profiling results."""
         print("\n--- Performance Profile ---")
-        if not self.results:
-            print("No functions have been profiled yet.")
-        else:
-            for name, timing in self.results.items():
-                print(f"{name}: {timing}")
+        if not self.results and self.memo_hits == 0 and self.memo_misses == 0:
+            print("No profiling data has been recorded.")
+            return
+
+        for name, timing in self.results.items():
+            print(f"- {name}: {timing}")
+        
+        if self.memo_hits > 0 or self.memo_misses > 0:
+            total_lookups = self.memo_hits + self.memo_misses
+            hit_ratio = (self.memo_hits / total_lookups * 100) if total_lookups > 0 else 0
+            print("\n--- Memoization Cache ---")
+            print(f"- Hits: {self.memo_hits}")
+            print(f"- Misses: {self.memo_misses}")
+            print(f"- Hit Ratio: {hit_ratio:.2f}%")
+
         print("-------------------------\n")
 
 # Singleton instance

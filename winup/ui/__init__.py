@@ -9,6 +9,9 @@ from .widget_factory import create_widget, register_widget
 # Low-level Layouts (usually not overridden)
 from .layout_managers import VBox, HBox
 
+# Dialogs
+from . import dialogs
+
 # --- Public API ---
 # These are factory functions, not classes. They create widgets from the registry.
 
@@ -55,6 +58,7 @@ def Row(*args, **kwargs):
 # Expose all factory functions and the registration function for discoverability.
 __all__ = [
     "register_widget",
+    "dialogs",
     "VBox", "HBox",
     "Button", "Calendar", "Deck", "Frame", "Image", "Input", "Label", "Link",
     "ProgressBar", "Slider", "Textarea",

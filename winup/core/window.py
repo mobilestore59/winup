@@ -7,13 +7,14 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QSize
+from ..shell import MenuBar, ToolBar, StatusBar
 from typing import Optional
 
 class Window(QMainWindow):
     """
     Represents a top-level application window that can hold a WinUp component.
     """
-    def __init__(self, component: QWidget, title="WinUp", width=800, height=600, icon_path: Optional[str] = None):
+    def __init__(self, component: QWidget, title="WinUp", width=800, height=600, icon_path: Optional[str] = None, menu_bar: Optional[MenuBar] = None, tool_bar: Optional[ToolBar] = None, status_bar: Optional[StatusBar] = None):
         """
         Creates and shows a new window.
 
@@ -23,6 +24,9 @@ class Window(QMainWindow):
             width (int): The initial width of the window.
             height (int): The initial height of the window.
             icon_path (str, optional): Path to the window icon.
+            menu_bar (MenuBar, optional): The menu bar for the window.
+            tool_bar (ToolBar, optional): The tool bar for the window.
+            status_bar (StatusBar, optional): The status bar for the window.
         """
         # Ensure a QApplication instance exists.
         _WinUpApp.get_instance()
@@ -34,6 +38,12 @@ class Window(QMainWindow):
             self.setWindowIcon(QIcon(icon_path))
 
         self.setCentralWidget(component)
+        if menu_bar:
+            self.setMenuBar(menu_bar)
+        if tool_bar:
+            self.addToolBar(tool_bar)
+        if status_bar:
+            self.setStatusBar(status_bar)
         self.show()
 
         # Register the window with the global app manager
@@ -58,12 +68,12 @@ class _WinUpApp:
             cls._instance = _WinUpApp()
         return cls._instance
 
-    def create_main_window(self, component: QWidget, title, width, height, icon):
+    def create_main_window(self, component: QWidget, title, width, height, icon, **shell_kwargs):
         """Creates the first, primary window for the application."""
         if self._main_window:
             raise RuntimeError("Main window has already been created.")
             
-        self._main_window = Window(component, title, width, height, icon)
+        self._main_window = Window(component, title, width, height, icon, **shell_kwargs)
         return self._main_window
 
     def register_window(self, window: QMainWindow):
