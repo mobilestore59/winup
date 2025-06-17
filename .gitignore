@@ -1,0 +1,4 @@
+dist
+__pycache__
+winup.egg-info
+tasks.db
