@@ -11,6 +11,8 @@ from .state import state
 from .tools import wintools, profiler
 from . import shell
 from . import tasks
+from . import traits
+from . import net
 
 # --- Main API ---
 
@@ -27,6 +29,9 @@ def run(main_component: callable, title="WinUp App", width=800, height=600, icon
         status_bar (shell.StatusBar): A StatusBar object for the main window.
         tray_icon (shell.SystemTrayIcon): An icon for the system tray.
     """
+    # Initialize the style manager immediately, before any widgets are created.
+    style.init_app(_winup_app.app)
+
     main_widget = main_component()
     
     # --- ADD THIS ---
@@ -40,7 +45,6 @@ def run(main_component: callable, title="WinUp App", width=800, height=600, icon
     main_window = _winup_app.create_main_window(main_widget, title, width, height, icon, **shell_kwargs)
     
     # Initialize all modules that require a window instance
-    style.init_app(_winup_app.app)
     wintools.init_app(main_window)
     
     # Enable hot reloading if in dev mode
@@ -63,5 +67,5 @@ __all__ = [
     "run", "Window", "hot_reload", "events", 
     "ui", "style", "state", "tools", "profiler",
     "component", "memo", "clear_memo_cache",
-    "shell", "tasks"
+    "shell", "tasks", "traits", "net"
 ]

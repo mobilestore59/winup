@@ -16,6 +16,10 @@ from .widgets.progress_bar import ProgressBar as DefaultProgressBar
 from .widgets.slider import Slider as DefaultSlider
 from .widgets.textarea import Textarea as DefaultTextarea
 from .layouts import Column as DefaultColumn, Row as DefaultRow
+from .widgets.combobox import ComboBox as DefaultComboBox
+from .widgets.switch import Switch as DefaultSwitch
+from .widgets.tabview import TabView as DefaultTabView
+from .widgets.scroll_view import ScrollView as DefaultScrollView
 
 # The central registry for widget classes
 _WIDGET_REGISTRY = {
@@ -28,8 +32,12 @@ _WIDGET_REGISTRY = {
     "Label": DefaultLabel,
     "Link": DefaultLink,
     "ProgressBar": DefaultProgressBar,
+    "ScrollView": DefaultScrollView,
     "Slider": DefaultSlider,
+    "Switch": DefaultSwitch,
+    "TabView": DefaultTabView,
     "Textarea": DefaultTextarea,
+    "ComboBox": DefaultComboBox,
     "Column": DefaultColumn,
     "Row": DefaultRow,
 }

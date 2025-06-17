@@ -173,6 +173,57 @@ if __name__ == "__main__":
     winup.run(main_component=App)
 ```
 
+### Traits System: Adding Behavior without Subclassing
+
+While subclassing is great for creating new *kinds* of widgets, sometimes you just want to add a small, reusable piece of behavior to an *existing* widget—like making it draggable or giving it a right-click menu. This is where Traits come in.
+
+Traits are modular behaviors that can be dynamically attached to any widget instance. WinUp comes with several built-in traits:
+
+*   `draggable`: Makes a widget draggable within its parent.
+*   `context_menu`: Adds a custom right-click context menu.
+*   `tooltip`: A simple way to add a hover tooltip.
+*   `hover_effect`: Applies a `[hover="true"]` style property on mouse-over, which you can target in your stylesheets (e.g., `QPushButton[hover="true"]`).
+*   `highlightable`: Makes the text of a widget (like `ui.Label`) selectable by the user.
+
+You can add a trait to any widget using `winup.traits.add_trait()`.
+
+```python
+# traits_demo.py
+import winup
+from winup import ui, traits
+
+def App():
+    # Let's create a simple label that we want to make interactive
+    my_label = ui.Label(
+        "I'm a draggable label with a context menu!",
+        props={
+            "padding": "15px",
+            "background-color": "#f0f0f0",
+            "border": "1px solid #ccc",
+            "border-radius": "5px"
+        }
+    )
+
+    # Add the draggable trait
+    traits.add_trait(my_label, "draggable")
+
+    # Add a context menu with a dictionary of actions
+    traits.add_trait(my_label, "context_menu", items={
+        "Say Hello": lambda: print("Hello from the context menu!"),
+        "---": None, # This creates a separator
+        "Reset Position": lambda: my_label.move(10, 10)
+    })
+
+    # The container needs a null layout for dragging to work relative to it
+    return ui.Frame(
+        children=[my_label],
+        props={"layout": "null"}
+    )
+
+if __name__ == "__main__":
+    winup.run(main_component=App, title="Traits Demo")
+```
+
 ### State Management
 
 WinUp's global `state` object is the single source of truth for your application's data.

@@ -15,11 +15,15 @@ class Button(QPushButton):
         self.setText(text)
 
     def on_click(self, func: callable):
-        # Disconnect any existing handlers to avoid multiple connections
+        """
+        Sets the function to be called when the button is clicked.
+        This replaces any previously set click handler.
+        """
+        # Disconnect all existing handlers from the clicked signal
         try:
             self.clicked.disconnect()
         except RuntimeError:
-            # This happens if there are no connections
+            # This is expected if no signals were connected yet.
             pass
         self.clicked.connect(func)
         return self

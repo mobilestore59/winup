@@ -1,5 +1,15 @@
 import sys
 from PySide6.QtWidgets import QApplication, QWidget, QSizePolicy
+from PySide6.QtCore import Qt
+
+# --- Style Constants ---
+# Provide framework-level access to common Qt constants to avoid direct Qt imports in user code.
+AlignLeft = Qt.AlignmentFlag.AlignLeft
+AlignRight = Qt.AlignmentFlag.AlignRight
+AlignCenter = Qt.AlignmentFlag.AlignCenter
+AlignTop = Qt.AlignmentFlag.AlignTop
+AlignBottom = Qt.AlignmentFlag.AlignBottom
+AlignVCenter = Qt.AlignmentFlag.AlignVCenter
 
 class Styler:
     def __init__(self):
@@ -8,8 +18,15 @@ class Styler:
         self._styled_widgets = {}
 
     def init_app(self, app: QApplication):
-        """Stores the application instance to apply global styles."""
+        """
+        Stores the application instance and applies any styles that were
+        defined before initialization.
+        """
         self._app = app
+        # If styles were added before the app was running, apply them now.
+        if self._definitions:
+            qss = self._to_qss(self._definitions)
+            self._app.setStyleSheet(qss)
 
     def add_style_dict(self, styles: dict):
         """
@@ -27,8 +44,11 @@ class Styler:
                 self._definitions[selector] = {}
             self._definitions[selector].update(rules)
         
-        qss = self._to_qss(self._definitions)
-        self._app.setStyleSheet(qss)
+        # If the app is already running, apply styles immediately.
+        # Otherwise, they will be applied during init_app.
+        if self._app:
+            qss = self._to_qss(self._definitions)
+            self._app.setStyleSheet(qss)
 
     def add_style(self, widget, style_class: str):
         """
@@ -40,12 +60,12 @@ class Styler:
         if style_class not in current_classes.split():
             new_classes = f"{current_classes} {style_class}".strip()
             widget.setProperty("class", new_classes)
-            self._repolish(widget)
+            self.repolish(widget)
 
     def set_id(self, widget, id_name: str):
         """Sets the object name for a widget, allowing it to be targeted with an ID selector."""
         widget.setObjectName(id_name)
-        self._repolish(widget)
+        self.repolish(widget)
 
     def set_fixed_size(self, widget: QWidget, horizontal: bool = True, vertical: bool = True):
         """
@@ -80,7 +100,7 @@ class Styler:
             current_classes.remove(class_name)
             
         widget.setProperty("class", " ".join(current_classes))
-        self._repolish(widget)
+        self.repolish(widget)
 
     def _to_qss(self, styles: dict) -> str:
         """Converts a style dictionary to a QSS string."""
@@ -90,7 +110,7 @@ class Styler:
             parts.append(f"{selector} {{ {rules_str}; }}")
         return "\n".join(parts)
 
-    def _repolish(self, widget):
+    def repolish(self, widget):
         """Triggers a style re-computation for the widget."""
         widget.style().unpolish(widget)
         widget.style().polish(widget)

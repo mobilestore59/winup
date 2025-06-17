@@ -1,5 +1,7 @@
 import platform
 from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QTimer
+from typing import Callable
 
 class WindowTools:
     def __init__(self):
@@ -83,6 +85,17 @@ class WindowTools:
             
     def get_window_geometry(self):
         return self._window.frameGeometry()
+
+    def call_later(self, delay_ms: int, callback: Callable):
+        """
+        Calls a function after a specified delay on the main UI thread.
+        This is the thread-safe way to schedule UI updates from other threads.
+
+        Args:
+            delay_ms: The delay in milliseconds. Use 0 for "as soon as possible".
+            callback: The function to execute.
+        """
+        QTimer.singleShot(delay_ms, callback)
 
 
 # Singleton instance

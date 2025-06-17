@@ -6,6 +6,7 @@ import random
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import winup
+from winup import ui, state
 
 # --- App Logic ---
 
@@ -15,7 +16,6 @@ def find_random_file():
     
     all_paths = []
     for root, dirs, files in os.walk(project_root):
-        # Add all directories and files to our list
         for name in dirs:
             all_paths.append(os.path.join(root, name))
         for name in files:
@@ -24,36 +24,41 @@ def find_random_file():
     if not all_paths:
         return "No files or folders found."
         
-    # Select and return a random path
     return random.choice(all_paths)
 
 # --- UI Setup ---
 
-winup.create_window("Random File Finder", 700, 200)
+def RandomFileApp():
+    """Main component for the Random File Finder application."""
+    
+    # Use state management for the result label to make it reactive
+    state.set("random_path", "...")
 
-# Create the widgets we'll need
-title_label = winup.ui.Label("Click the button to find a random file in your project:", bold=True)
-result_label = winup.ui.Label("...")
-find_button = winup.ui.Button("Find a Random File!")
+    def update_random_file_label():
+        """Finds a random file and updates the state."""
+        random_path = find_random_file()
+        state.set("random_path", random_path)
 
-# Define what happens when the button is clicked
-def update_random_file_label():
-    random_path = find_random_file()
-    result_label.setText(random_path)
+    # Create widgets
+    title_label = ui.Label("Click the button to find a random file in your project:", props={"font-weight": "bold"})
+    result_label = ui.Label() # Text will be bound from state
+    find_button = ui.Button("Find a Random File!", on_click=update_random_file_label)
+    
+    # Bind the label's text property to our state key
+    state.bind(result_label, "text", "random_path")
 
-# Assign the function to the button's on_click handler
-find_button.on_click = update_random_file_label
-
-# --- Layout ---
-
-# Use a Column to arrange the widgets vertically
-app_layout = winup.ui.Column(
-    children=[
+    # Arrange widgets in a layout
+    return ui.Column(props={"spacing": 10, "margin": "20px"}, children=[
         title_label,
         result_label,
         find_button
-    ]
-)
+    ])
 
-winup.add_widget(app_layout)
-winup.show() 
+
+if __name__ == "__main__":
+    winup.run(
+        main_component=RandomFileApp,
+        title="Random File Finder",
+        width=700,
+        height=200
+    )

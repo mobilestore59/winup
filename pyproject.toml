@@ -1,6 +1,6 @@
 [project]
 name = "winup"
-version = "1.1.1"
+version = "1.2.1"
 description = "A powerful, .exe Desktop Application Python GUI framework built on top of PySide6."
 authors = [
     { name = "ebaadwaheed", email = "ebaadalt@gmail.com" }
@@ -17,7 +17,8 @@ dependencies = [
     "firebase-admin",  # For Firebase
     "watchdog",
     "click",
-    "questionary"
+    "questionary",
+    "websockets"
 ]
 
 [project.urls]

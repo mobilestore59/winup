@@ -42,8 +42,17 @@ def Link(*args, **kwargs):
 def ProgressBar(*args, **kwargs):
     return create_widget("ProgressBar", *args, **kwargs)
 
+def ScrollView(*args, **kwargs):
+    return create_widget("ScrollView", *args, **kwargs)
+
 def Slider(*args, **kwargs):
     return create_widget("Slider", *args, **kwargs)
+
+def Switch(*args, **kwargs):
+    return create_widget("Switch", *args, **kwargs)
+
+def TabView(*args, **kwargs):
+    return create_widget("TabView", *args, **kwargs)
 
 def Textarea(*args, **kwargs):
     return create_widget("Textarea", *args, **kwargs)
@@ -54,6 +63,8 @@ def Column(*args, **kwargs):
 def Row(*args, **kwargs):
     return create_widget("Row", *args, **kwargs)
 
+def ComboBox(*args, **kwargs):
+    return create_widget("ComboBox", *args, **kwargs)
 
 # Expose all factory functions and the registration function for discoverability.
 __all__ = [
@@ -61,6 +72,6 @@ __all__ = [
     "dialogs",
     "VBox", "HBox",
     "Button", "Calendar", "Deck", "Frame", "Image", "Input", "Label", "Link",
-    "ProgressBar", "Slider", "Textarea",
+    "ProgressBar", "ScrollView", "Slider", "Switch", "TabView", "Textarea",
     "Column", "Row"
 ] 

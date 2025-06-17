@@ -1,6 +1,6 @@
 # winup/ui/input.py
 import re
-from typing import Union, Callable
+from typing import Union, Callable, Optional
 from PySide6.QtWidgets import QLineEdit
 from ... import style
 from ...state import state as global_state
@@ -13,7 +13,7 @@ VALIDATION_PATTERNS = {
 }
 
 class Input(QLineEdit):
-    def __init__(self, placeholder="", text="", props=None, validation=None, **kwargs):
+    def __init__(self, placeholder="", text="", props=None, validation=None, on_submit: Optional[Callable] = None, **kwargs):
         super().__init__(**kwargs)
         if placeholder:
             self.setPlaceholderText(placeholder)
@@ -23,6 +23,9 @@ class Input(QLineEdit):
         self.validation_rule = validation
         self.textChanged.connect(self._on_text_changed)
         
+        if on_submit:
+            self.returnPressed.connect(on_submit)
+
         if props:
             style.styler.apply_props(self, props)
         
@@ -51,3 +54,7 @@ class Input(QLineEdit):
     def get_text(self) -> str:
         """A more Pythonic alias for text()."""
         return self.text()
+        
+    def clear(self):
+        """Clears the text from the input field."""
+        self.setText("")
