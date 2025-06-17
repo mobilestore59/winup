@@ -28,6 +28,9 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
 *   **Declarative & Pythonic UI:** Build complex layouts with simple `Row` and `Column` objects instead of clunky box layouts.
 *   **Component-Based Architecture:** Use the `@component` decorator to create modular and reusable UI widgets from simple functions.
 *   **Powerful Styling System:** Style your widgets with simple Python dictionaries using `props`. Create global "CSS-like" classes with `style.add_style_dict`.
+*   **Advanced Extensibility:**
+    *   **Widget Factory:** Replace any default widget with your own custom implementation (e.g., C++ based) using `ui.register_widget()`.
+    *   **Multiple Windows:** Create and manage multiple independent windows for complex applications like tool palettes or music players.
 *   **Reactive State Management:**
     *   **One-Way Binding:** Automatically update your UI when your data changes with `state.bind()`.
     *   **Two-Way Binding:** Effortlessly sync input widgets with your state using `state.bind_two_way()`.
@@ -126,6 +129,41 @@ def App():
     return ui.Button("Primary Button", props={"class": "btn-primary"})
 ```
 
+### Extending Widgets
+
+WinUp allows you to replace any default widget with your own custom class. This is perfect for creating highly specialized components or for integrating widgets written in C++.
+
+To do this, simply create a class that inherits from the widget you want to replace (or from a base Qt class) and then register it with the framework before you run your app.
+
+```python
+# To subclass a default widget, you must import it directly
+from winup.ui.widgets.button import Button as DefaultButton
+
+# 1. Create your custom widget class
+class BigRedButton(DefaultButton):
+    def __init__(self, text: str, on_click: callable = None):
+        # Define some custom props to make it unique
+        custom_props = {
+            "background-color": "red",
+            "color": "white",
+            "font-size": "20px",
+            "font-weight": "bold",
+            "padding": "15px",
+        }
+        super().__init__(text=text, on_click=on_click, props=custom_props)
+
+# In your main script:
+if __name__ == "__main__":
+    # 2. Register your custom class to override the default "Button"
+    ui.register_widget("Button", BigRedButton)
+    
+    # 3. Now, every call to ui.Button() will create a BigRedButton instead!
+    def App():
+        return ui.Button("I am a custom button!")
+
+    winup.run(main_component=App)
+```
+
 ### State Management
 
 WinUp's global `state` object is the single source of truth for your application's data.
@@ -204,6 +242,39 @@ def App():
     winup.state.bind_two_way(name_input, "username")
 
     return ui.Column(children=[name_input, greeting])
+```
+
+### Multiple Windows
+
+You are not limited to a single window. The `winup.Window` class lets you spawn new, independent windows at any time. This is ideal for things like settings dialogs, tool palettes, or mini-player controls.
+
+The new window will have its own component and run in the same application event loop.
+
+```python
+import winup
+from winup import ui
+
+def MiniPlayerComponent():
+    """A simple component for the new window."""
+    return ui.Label("I'm a mini-player window!")
+
+def open_mini_player():
+    """Event handler to create and show the new window."""
+    player_component = MiniPlayerComponent()
+    # This creates and shows the new window instantly
+    winup.Window(
+        component=player_component, 
+        title="Mini Player", 
+        width=250, 
+        height=100
+    )
+
+def App():
+    """The main app component."""
+    return ui.Button("Open Player", on_click=open_mini_player)
+
+if __name__ == "__main__":
+    winup.run(main_component=App)
 ```
 
 ### Developer Tools

@@ -7,83 +7,73 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QIcon
 from PySide6.QtCore import QSize
+from typing import Optional
 
-class WinUpApp:
+class Window(QMainWindow):
+    """
+    Represents a top-level application window that can hold a WinUp component.
+    """
+    def __init__(self, component: QWidget, title="WinUp", width=800, height=600, icon_path: Optional[str] = None):
+        """
+        Creates and shows a new window.
+
+        Args:
+            component (QWidget): The root WinUp component/widget to display in the window.
+            title (str): The window title.
+            width (int): The initial width of the window.
+            height (int): The initial height of the window.
+            icon_path (str, optional): Path to the window icon.
+        """
+        # Ensure a QApplication instance exists.
+        _WinUpApp.get_instance()
+        super().__init__()
+
+        self.setWindowTitle(title)
+        self.resize(width, height)
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
+
+        self.setCentralWidget(component)
+        self.show()
+
+        # Register the window with the global app manager
+        _winup_app.register_window(self)
+
+class _WinUpApp:
+    """Internal singleton class to manage the QApplication and windows."""
+    _instance = None
+
     def __init__(self):
-        self.app = QApplication.instance() or QApplication(sys.argv)
-        self._main_window = None
-        self._main_layout = None
-
-    def create_window(self, title="WinUp App", width=640, height=480, icon=None):
-        self._main_window = QMainWindow()
-        self._main_window.setWindowTitle(title)
-        self._main_window.resize(QSize(width, height))
-
-        if icon:
-            self._main_window.setWindowIcon(QIcon(icon))
-
-        central_widget = QWidget()
-        self._main_layout = QVBoxLayout()
-        central_widget.setLayout(self._main_layout)
-        self._main_window.setCentralWidget(central_widget)
-
-    def add_widget(self, widget):
-        if self._main_layout is None:
-            raise RuntimeError("Window layout not initialized.")
-        self._main_layout.addWidget(widget)
-
-    def add_row(self, *widgets):
-        layout = QHBoxLayout()
-        for widget in widgets:
-            layout.addWidget(widget)
-        container = QWidget()
-        container.setLayout(layout)
-        self._main_layout.addWidget(container)
-        return self
-
-    def add_column(self, *widgets):
-        layout = QVBoxLayout()
-        for widget in widgets:
-            layout.addWidget(widget)
-        container = QWidget()
-        container.setLayout(layout)
-        self._main_layout.addWidget(container)
-        return self
-
-    def add_flex(self, direction: str = "row", widgets: list = []):
-        if direction == "row":
-            layout = QHBoxLayout()
-        elif direction == "column":
-            layout = QVBoxLayout()
+        if QApplication.instance():
+            self.app = QApplication.instance()
         else:
-            raise ValueError("direction must be 'row' or 'column'")
+            self.app = QApplication(sys.argv)
+            
+        self.windows = [] # Keep track of all open windows
+        self._main_window: Optional[Window] = None
 
-        for widget in widgets:
-            layout.addWidget(widget)
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = _WinUpApp()
+        return cls._instance
 
-        container = QWidget()
-        container.setLayout(layout)
-        self._main_layout.addWidget(container)
-        return self
+    def create_main_window(self, component: QWidget, title, width, height, icon):
+        """Creates the first, primary window for the application."""
+        if self._main_window:
+            raise RuntimeError("Main window has already been created.")
+            
+        self._main_window = Window(component, title, width, height, icon)
+        return self._main_window
 
-    def add_grid(self, cells: list[list]):
-        layout = QGridLayout()
+    def register_window(self, window: QMainWindow):
+        """Adds a window to the list of tracked windows."""
+        if window not in self.windows:
+            self.windows.append(window)
 
-        for row_index, row in enumerate(cells):
-            for col_index, widget in enumerate(row):
-                if widget:  # skip None values
-                    layout.addWidget(widget, row_index, col_index)
+    def run(self):
+        """Starts the Qt application event loop."""
+        sys.exit(self.app.exec())
 
-        container = QWidget()
-        container.setLayout(layout)
-        self._main_layout.addWidget(container)
-        return self
-
-    def show(self):
-        if not self._main_window:
-            raise RuntimeError("No window to show.")
-        self._main_window.show()
-        return self.app.exec()
-
-# Singleton instance
-_winup_app = WinUpApp()
+# Global instance of the application manager
+_winup_app = _WinUpApp.get_instance()
