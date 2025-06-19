@@ -1,3 +1,18 @@
+![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)
+![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue)
+![Component Driven](https://img.shields.io/badge/architecture-component--driven-orange)
+![Desktop App](https://img.shields.io/badge/platform-desktop-lightgrey)
+![CLI Support](https://img.shields.io/badge/CLI-supported-critical)
+![Live Reload](https://img.shields.io/badge/live--reload-enabled-blue)
+
+## Image Examples
+
+![image](https://github.com/user-attachments/assets/81d016e9-e10a-4438-ab94-99b6d76b8efe)
+
+![image](https://github.com/user-attachments/assets/154dc3f4-ea8c-4f6f-84d3-88c7ab74a46f)
+
+![image](https://github.com/user-attachments/assets/2318f701-6ec8-4402-abcc-40c879bf1a10)
+
 # WinUp 🚀
 
 **A ridiculously Pythonic and powerful framework for building beautiful desktop applications.**
