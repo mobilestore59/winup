@@ -107,7 +107,7 @@ def App():
     )
 
 if __name__ == "__main__":
-    winup.run(main_component=App, title="My First WinUp App")
+    winup.run(main_component_path="file_name:App", title="My First WinUp App")
 ```
 
 ---
@@ -440,7 +440,7 @@ def App():
     ])
 
 if __name__ == "__main__":
-    winup.run(main_component=App, title="Drag and Drop Demo")
+    winup.run(main_component_path="file_name:App", title="Drag and Drop Demo")
 ```
 
 ### State Management: The Reactive Core
@@ -483,7 +483,7 @@ def App():
     ])
 
 if __name__ == "__main__":
-    winup.run(main_component=App, title="New State Demo")
+    winup.run(main_component_path="file_name:App", title="New State Demo")
 ```
 
 **2. Multi-State Binding**
@@ -712,7 +712,7 @@ def App():
 
 if __name__ == "__main__":
     # You need to create the router files first for this to work.
-    winup.run(main_component=App, title="Multi-Page App Demo")
+    winup.run(main_component_path="file_name:App", title="Multi-Page App Demo")
 ```
 
 ### Component Lifecycle Hooks: `on_mount` and `on_unmount`
@@ -801,7 +801,7 @@ def App():
 if __name__ == "__main__":
     # You will need to import clear_layout from winup.core.hot_reload
     from winup.core.hot_reload import clear_layout 
-    winup.run(main_component=App, title="Lifecycle Demo")
+    winup.run(main_component_path="file_name:App", title="Lifecycle Demo")
 ```
 
 ### Built-in Animations & Effects
