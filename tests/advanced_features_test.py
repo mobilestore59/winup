@@ -14,7 +14,7 @@ class CustomButton(DefaultButton):
             "font-size": "14px",
             "font-weight": "bold",
             "border-radius": "8px",
-            "pgadding": "10px 15px",
+            "padding": "10px 15px",
         }
         
         # We'll allow users to override our custom style with their own props
@@ -24,6 +24,7 @@ class CustomButton(DefaultButton):
         super().__init__(text=text, on_click=on_click, props=custom_props, **kwargs)
 
 # 2. Define the component for the secondary window.
+@winup.component
 def SecondaryComponent():
     """The UI for our pop-up window."""
     return ui.Column(
@@ -49,6 +50,7 @@ def open_secondary_window():
     )
 
 # 4. Define the main application component.
+@winup.component
 def MainApp():
     """The UI for the primary window."""
     return ui.Column(
@@ -66,8 +68,16 @@ if __name__ == "__main__":
     print("Registering `CustomButton` to override the default `Button`.")
     ui.register_widget("Button", CustomButton)
     
+    # Add the project root to the path for hot reloading to work
+    import sys
+    import os
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
     # Run the main application as usual.
     winup.run(
-        main_component=MainApp,
-        title="Advanced Features Test"
+        main_component_path="tests.advanced_features_test:MainApp",
+        title="Advanced Features Test",
+        dev=True
     ) 

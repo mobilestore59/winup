@@ -18,7 +18,7 @@ class ScrollView(QScrollArea):
         self.content_widget = child
 
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)
 
     def scroll_to_bottom(self):
         """Automatically scrolls to the bottom of the content."""
@@ -32,4 +32,8 @@ class ScrollView(QScrollArea):
         if hasattr(self.content_widget, 'add_child'):
             self.content_widget.add_child(widget)
         else:
-            raise TypeError("The content widget of this ScrollView does not support adding children.") 
+            raise TypeError("The content widget of this ScrollView does not support adding children.")
+
+    def set_widget(self, widget: QWidget):
+        self.setWidget(widget)
+        self.content_widget = widget 

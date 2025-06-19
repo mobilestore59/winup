@@ -1,6 +1,9 @@
 import sys
 from PySide6.QtWidgets import QApplication, QWidget, QSizePolicy
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QCursor, QFont
+# Import the class, not the module, to avoid the cycle
+from .theming import ThemeManager
 
 # --- Style Constants ---
 # Provide framework-level access to common Qt constants to avoid direct Qt imports in user code.
@@ -11,44 +14,114 @@ AlignTop = Qt.AlignmentFlag.AlignTop
 AlignBottom = Qt.AlignmentFlag.AlignBottom
 AlignVCenter = Qt.AlignmentFlag.AlignVCenter
 
+# --- Cursor Constants ---
+# Map string names to Qt.CursorShape enums for easier use in props.
+CURSOR_MAP = {
+    "ArrowCursor": Qt.CursorShape.ArrowCursor,
+    "UpArrowCursor": Qt.CursorShape.UpArrowCursor,
+    "CrossCursor": Qt.CursorShape.CrossCursor,
+    "WaitCursor": Qt.CursorShape.WaitCursor,
+    "IBeamCursor": Qt.CursorShape.IBeamCursor,
+    "SizeVerCursor": Qt.CursorShape.SizeVerCursor,
+    "SizeHorCursor": Qt.CursorShape.SizeHorCursor,
+    "SizeBDiagCursor": Qt.CursorShape.SizeBDiagCursor,
+    "SizeFDiagCursor": Qt.CursorShape.SizeFDiagCursor,
+    "SizeAllCursor": Qt.CursorShape.SizeAllCursor,
+    "BlankCursor": Qt.CursorShape.BlankCursor,
+    "SplitVCursor": Qt.CursorShape.SplitVCursor,
+    "SplitHCursor": Qt.CursorShape.SplitHCursor,
+    "PointingHandCursor": Qt.CursorShape.PointingHandCursor,
+    "ForbiddenCursor": Qt.CursorShape.ForbiddenCursor,
+    "WhatsThisCursor": Qt.CursorShape.WhatsThisCursor,
+    "BusyCursor": Qt.CursorShape.BusyCursor,
+    "OpenHandCursor": Qt.CursorShape.OpenHandCursor,
+    "ClosedHandCursor": Qt.CursorShape.ClosedHandCursor,
+}
+
+# Map for font weights
+FONT_WEIGHT_MAP = {
+    "thin": QFont.Weight.Thin,
+    "extralight": QFont.Weight.ExtraLight,
+    "light": QFont.Weight.Light,
+    "normal": QFont.Weight.Normal,
+    "medium": QFont.Weight.Medium,
+    "demibold": QFont.Weight.DemiBold,
+    "bold": QFont.Weight.Bold,
+    "extrabold": QFont.Weight.ExtraBold,
+    "black": QFont.Weight.Black,
+}
+
+def merge_props(default_props: dict, new_props: dict) -> dict:
+    """
+    Merges two dictionaries of props.
+    Classes are combined, and other properties from new_props override default_props.
+    """
+    merged = default_props.copy()
+    
+    # Combine classes
+    default_class = default_props.get("class", "")
+    new_class = new_props.get("class", "")
+    merged["class"] = f"{default_class} {new_class}".strip()
+    
+    # Update with new props, letting new_props win
+    merged.update(new_props)
+    
+    return merged
+
 class Styler:
     def __init__(self):
         self._app: QApplication = None
         self._definitions = {}
+        # The styler will create and own the theme manager.
+        self.themes: ThemeManager = None
         self._styled_widgets = {}
 
     def init_app(self, app: QApplication):
         """
-        Stores the application instance and applies any styles that were
-        defined before initialization.
+        Stores the application instance, creates the theme manager,
+        and applies any styles that were defined before initialization.
         """
+        import winup.style
         self._app = app
-        # If styles were added before the app was running, apply them now.
+        if not self.themes:
+            self.themes = ThemeManager(self)
+            winup.style.themes = self.themes
+
+        # This is the crucial change: If themes have been added but none
+        # is active, activate the first one as the default.
+        if self.themes._themes and not self.themes._active_theme_name:
+            first_theme = next(iter(self.themes._themes))
+            self.themes.set_theme(first_theme, _force_reapply=False)
+
         if self._definitions:
-            qss = self._to_qss(self._definitions)
-            self._app.setStyleSheet(qss)
+            self.reapply_global_styles()
 
     def add_style_dict(self, styles: dict):
         """
         Adds a dictionary of styles to the application.
         The dictionary is converted to a QSS string and applied globally.
         """
-        if not self._app:
-            print("Warning: Styler has not been initialized with a QApplication instance. "
-                  "Call init_app(app) first.", file=sys.stderr)
-            return
-
-        # Deep merge the new styles into the existing definitions
         for selector, rules in styles.items():
             if selector not in self._definitions:
                 self._definitions[selector] = {}
             self._definitions[selector].update(rules)
         
-        # If the app is already running, apply styles immediately.
-        # Otherwise, they will be applied during init_app.
+        # Only reapply styles if the application is already running.
+        # Otherwise, init_app will handle it.
         if self._app:
-            qss = self._to_qss(self._definitions)
-            self._app.setStyleSheet(qss)
+            self.reapply_global_styles()
+
+    def reapply_global_styles(self):
+        """
+        Substitutes theme variables in all defined styles and reapplies
+        the global stylesheet.
+        """
+        if not self._app:
+            return
+            
+        themed_styles = self.themes.substitute_variables(self._definitions)
+        qss = self._to_qss(themed_styles)
+        self._app.setStyleSheet(qss)
 
     def add_style(self, widget, style_class: str):
         """
@@ -117,24 +190,50 @@ class Styler:
 
     def apply_props(self, widget, props: dict):
         """Applies a dictionary of properties to a widget."""
-        if not self._app:
-            print("Warning: Styler has not been initialized. Call init_app(app) first.", file=sys.stderr)
-            # Even if not initialized, we can still try to apply direct styles.
+        if not self._app and QApplication.instance():
+            self.init_app(QApplication.instance())
+
+        themed_props = self.themes.substitute_variables(props) if props else {}
 
         # Handle special properties first
-        if "class" in props:
-            self.add_style(widget, props.pop("class"))
-        if "id" in props:
-            self.set_id(widget, props.pop("id"))
+        if "class" in themed_props:
+            self.add_style(widget, themed_props.pop("class"))
+        if "id" in themed_props:
+            self.set_id(widget, themed_props.pop("id"))
+        if "objectName" in themed_props:
+            # objectName is an alias for id, used for QSS selectors
+            self.set_id(widget, themed_props.pop("objectName"))
+        if "cursor" in themed_props:
+            cursor_name = themed_props.pop("cursor")
+            cursor_shape = CURSOR_MAP.get(cursor_name)
+            if cursor_shape:
+                widget.setCursor(QCursor(cursor_shape))
+            else:
+                print(f"Warning: Unknown cursor name '{cursor_name}'.", file=sys.stderr)
+        if "placeholder-text" in themed_props:
+            if hasattr(widget, 'setPlaceholderText'):
+                widget.setPlaceholderText(themed_props.pop("placeholder-text"))
+            else:
+                # Remove it anyway so it doesn't become invalid QSS
+                themed_props.pop("placeholder-text")
+                print(f"Warning: 'placeholder-text' prop used on a widget that doesn't support it.", file=sys.stderr)
+        if "font-weight" in themed_props:
+            weight_name = themed_props.pop("font-weight")
+            font = widget.font()
+            weight = FONT_WEIGHT_MAP.get(str(weight_name).lower())
+            if weight:
+                font.setWeight(weight)
+                widget.setFont(font)
+            else:
+                print(f"Warning: Unknown font-weight '{weight_name}'.", file=sys.stderr)
 
         # The rest of the props are assumed to be direct CSS properties
         style_str = ""
-        for key, value in props.items():
+        for key, value in themed_props.items():
             css_key = key.replace('_', '-')
             style_str += f"{css_key}: {value};"
 
         if style_str:
-            # Append to existing stylesheet to avoid overwriting class/id styles
             existing_style = widget.styleSheet() or ""
             if existing_style and not existing_style.endswith(';'):
                 existing_style += ';'

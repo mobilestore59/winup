@@ -1,22 +1,29 @@
-from winup import component, ui, state
+from winup import ui, style, component
 
 @component
 def SettingsPage():
-    """The page for application settings."""
-    
-    def toggle_theme():
-        current_theme = state.get('theme', 'light')
-        new_theme = 'dark' if current_theme == 'light' else 'light'
-        state.set('theme', new_theme)
+    """The page for application settings, like theme switching."""
 
-    theme_button = ui.Button("Toggle Dark/Light Mode", on_click=toggle_theme)
+    def set_theme(theme_name):
+        style.themes.set_theme(theme_name)
 
-    # We can add more settings here in the future
-    
     return ui.Column(
+        props={"spacing": 15, "class": "page"},
         children=[
-            ui.Label("Appearance", props={"font-weight": "bold", "font-size": "18px"}),
-            theme_button
-        ],
-        props={"class": "card"}
+            ui.Label("Settings", props={"class": "h1"}),
+            ui.Label("Theme"),
+            ui.Row(
+                props={"spacing": 10},
+                children=[
+                    ui.Button(
+                        "Light Mode", 
+                        on_click=lambda: set_theme("light")
+                    ),
+                    ui.Button(
+                        "Dark Mode", 
+                        on_click=lambda: set_theme("dark")
+                    ),
+                ]
+            ),
+        ]
     ) 

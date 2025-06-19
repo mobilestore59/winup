@@ -24,4 +24,4 @@ class Switch(QCheckBox):
             }
         """)
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)

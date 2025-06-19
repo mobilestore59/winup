@@ -4,12 +4,14 @@ from PySide6.QtCore import QSize, Qt
 from ... import style
 
 class Button(QPushButton):
-    def __init__(self, text: str = "Button", props: dict = None, on_click: callable = None, **kwargs):
+    def __init__(self, text: str = "Button", props: dict = None, on_click: callable = None, on_click_enabled: bool = True, **kwargs):
         super().__init__(text, **kwargs)
-        if on_click:
+        
+        if on_click and on_click_enabled:
             self.clicked.connect(on_click)
+
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)
 
     def set_text(self, text: str):
         self.setText(text)

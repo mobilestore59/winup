@@ -17,7 +17,7 @@ def App():
         title="Information",
         children=[
             ui.Label("This is a reusable card component."),
-            ui.Link("It can contain any other widget.", "https://google.com")
+            ui.Link("It can contain any other widget.", "https://google.com", 1)
         ]
     )
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     
     # Run the application using the modern syntax
     winup.run(
-        main_component=App,
+        main_component_path="main:App",
         title="Component-Based UI",
         width=700,
         height=600

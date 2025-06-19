@@ -1,4 +1,49 @@
 from PySide6.QtWidgets import QWidget, QLineEdit, QCheckBox
+from typing import TypeVar, Generic
+
+T = TypeVar('T')
+
+class State(Generic[T]):
+    """A wrapper for a single piece of state, providing a typed interface."""
+    def __init__(self, key: str, manager: 'StateManager', initial_value: T):
+        self._key = key
+        self._manager = manager
+        # Set the initial value in the manager
+        self._manager.set(self._key, initial_value)
+
+    def get(self) -> T:
+        """Gets the current value of the state."""
+        return self._manager.get(self._key)
+
+    def set(self, value: T):
+        """Sets a new value for the state."""
+        self._manager.set(self._key, value)
+
+    def subscribe(self, callback: callable):
+        """Subscribes a callback to changes in this state."""
+        self._manager.subscribe(self._key, callback)
+
+    def bind_to(self, widget: QWidget, property_name: str, formatter: callable):
+        """Binds this state to a widget's property using a formatter."""
+        # Use a MultiStateBinding with a single state for consistency
+        MultiStateBinding(self._manager, self).bind_to(widget, property_name, formatter)
+
+    def and_(self, *others: 'State') -> 'MultiStateBinding':
+        """Combines this state with others to create a multi-state binding."""
+        return MultiStateBinding(self._manager, self, *others)
+
+class MultiStateBinding:
+    """Represents a binding to multiple state objects."""
+    def __init__(self, manager: 'StateManager', *states: State):
+        self._manager = manager
+        self._states = states
+        self._keys = [s._key for s in states]
+
+    def bind_to(self, widget: QWidget, property_name: str, formatter: callable):
+        """
+        Binds the collected states to a widget's property using a formatter.
+        """
+        self._manager.bind_to(self._keys, widget, property_name, formatter)
 
 class StateManager:
     """A centralized state management system for WinUp applications."""
@@ -9,6 +54,19 @@ class StateManager:
         self._bindings = {}
         # Stores subscriptions: {'state_key': [callback1, callback2, ...]}
         self._subscriptions = {}
+        # Stores complex bindings: {'state_key': [binding_info, ...]}
+        self._complex_bindings = {}
+        # Holds created State objects to ensure singletons per key
+        self._state_objects = {}
+
+    def create(self, key: str, initial_value=None) -> State:
+        """
+        Creates or retrieves a managed State object.
+        This is the new recommended way to handle state.
+        """
+        if key not in self._state_objects:
+            self._state_objects[key] = State(key, self, initial_value)
+        return self._state_objects[key]
 
     def set(self, key: str, value):
         """
@@ -19,6 +77,7 @@ class StateManager:
 
         self._state[key] = value
         self._update_bindings(key)
+        self._update_complex_bindings(key)
         self._execute_subscriptions(key)
 
     def get(self, key: str, default=None):
@@ -37,6 +96,33 @@ class StateManager:
         self._subscriptions[key].append(callback)
         # Immediately call with current value
         callback(self.get(key))
+
+    def bind_to(self, state_keys: list[str], widget: QWidget, property_name: str, formatter: callable):
+        """
+        Binds one or more state keys to a widget's property using a formatter function.
+
+        Args:
+            state_keys: A list of state keys to depend on.
+            widget: The target widget.
+            property_name: The name of the property to update (e.g., 'text').
+            formatter: A function that takes the state values as arguments (in order)
+                       and returns the formatted value for the property.
+        """
+        binding_info = {
+            "keys": state_keys,
+            "widget": widget,
+            "property": property_name,
+            "formatter": formatter,
+        }
+
+        # Register this binding for each key it depends on
+        for key in state_keys:
+            if key not in self._complex_bindings:
+                self._complex_bindings[key] = []
+            self._complex_bindings[key].append(binding_info)
+
+        # Immediately apply the binding
+        self._apply_complex_binding(binding_info)
 
     def bind_two_way(self, widget: QWidget, state_key: str):
         """
@@ -105,10 +191,62 @@ class StateManager:
     def _set_widget_property(self, widget, property_name, value):
         """Helper to set a property on a widget, trying setter method first."""
         setter = getattr(widget, f"set{property_name.capitalize()}", None)
-        if setter and callable(setter):
-            setter(value)
-        else:
-            widget.setProperty(property_name.encode(), value)
+        try:
+            if setter and callable(setter):
+                setter(value)
+            else:
+                widget.setProperty(property_name, value)
+        except RuntimeError:
+            # This can happen if the widget is deleted while a state change is in flight.
+            # It's safe to ignore, as the widget is gone anyway.
+            return
         
-        widget.style().unpolish(widget)
-        widget.style().polish(widget)
+        # Repolish the widget to apply any potential style changes
+        try:
+            if widget and widget.style():
+                widget.style().unpolish(widget)
+                widget.style().polish(widget)
+        except RuntimeError:
+            pass # Widget was deleted, do nothing.
+
+    def _update_complex_bindings(self, updated_key: str):
+        """Update all complex bindings that depend on the updated key."""
+        if updated_key not in self._complex_bindings:
+            return
+
+        # Use a set to avoid updating the same binding multiple times if it depends on several updated keys
+        bindings_to_update = set()
+        for binding_info in self._complex_bindings[updated_key]:
+            # Create a tuple of the binding's components to make it hashable for the set
+            bindings_to_update.add(
+                (
+                    tuple(binding_info["keys"]),
+                    binding_info["widget"],
+                    binding_info["property"],
+                    binding_info["formatter"],
+                )
+            )
+
+        for keys, widget, prop, formatter in bindings_to_update:
+            binding_info = {
+                "keys": list(keys),
+                "widget": widget,
+                "property": prop,
+                "formatter": formatter,
+            }
+            self._apply_complex_binding(binding_info)
+
+    def _apply_complex_binding(self, binding_info: dict):
+        """Gathers current state values and applies a complex binding's formatter."""
+        # Gather the current values for all keys the binding depends on
+        values = [self.get(k) for k in binding_info["keys"]]
+
+        # Call the formatter with the values
+        try:
+            formatted_value = binding_info["formatter"](*values)
+            # Update the widget property
+            self._set_widget_property(
+                binding_info["widget"], binding_info["property"], formatted_value
+            )
+        except Exception as e:
+            print(f"Error applying binding: {e}")

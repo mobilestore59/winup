@@ -1,19 +1,31 @@
-from winup import component, ui, state, style
+from winup import ui, state, style, component
 
 @component
 def Navbar():
     """The main navigation bar for the application."""
-    
-    tasks_button = ui.Button("Tasks", on_click=lambda: state.set('current_page', 'tasks'))
-    settings_button = ui.Button("Settings", on_click=lambda: state.set('current_page', 'settings'))
+    page_state = state.create("current_page") # Get the existing state object
 
-    def set_active_button(page):
-        style.toggle_class(tasks_button, 'active', page == 'tasks')
-        style.toggle_class(settings_button, 'active', page == 'settings')
+    def navigate(page):
+        page_state.set(page)
 
-    state.subscribe('current_page', set_active_button)
+    tasks_button = ui.Button("Tasks", on_click=lambda: navigate('tasks'))
+    settings_button = ui.Button("Settings", on_click=lambda: navigate('settings'))
     
-    navbar = ui.Row(children=[tasks_button, settings_button])
-    style.set_id(navbar, "navbar")
-    
-    return navbar 
+    # The new, reactive way: Bind the 'class' property to the state.
+    # The class will be 'active' or '' automatically.
+    page_state.bind_to(tasks_button, 'class', lambda page: 'active' if page == 'tasks' else '')
+    page_state.bind_to(settings_button, 'class', lambda page: 'active' if page == 'settings' else '')
+
+    return ui.Frame(
+        props={"id": "navbar", "class": "header"},
+        children=[
+            ui.Label("TaskFlow", props={"class": "brand"}),
+            ui.Row(
+                props={"spacing": 10, "alignment": "AlignRight"},
+                children=[
+                    tasks_button,
+                    settings_button,
+                ]
+            )
+        ]
+    ) 

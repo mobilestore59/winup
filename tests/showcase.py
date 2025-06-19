@@ -9,11 +9,11 @@ import winup
 from winup import ui, state, style
 
 # --- Part 1: Random File Finder Logic ---
-def find_and_set_random_file():
+def find_and_set_random_file(path_state):
     """Finds a random file in the project and updates the application state."""
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     all_paths = [os.path.join(root, name) for root, dirs, files in os.walk(project_root) for name in dirs + files]
-    state.set('random_path', random.choice(all_paths) if all_paths else "No files found.")
+    path_state.set(random.choice(all_paths) if all_paths else "No files found.")
 
 # --- Part 2: Main Application Component ---
 
@@ -21,32 +21,34 @@ def ShowcaseApp():
     """The main component for the feature showcase application."""
     
     # --- State Initialization ---
-    state.set('random_path', 'Click the button!')
-    state.set('email_value', 'not-an-email')
-    state.set('name_value', 'John Doe')
+    random_path = state.create('random_path', 'Click the button!')
+    email_value = state.create('email_value', 'not-an-email')
+    name_value = state.create('name_value', 'John Doe')
 
     # --- Random File Finder UI ---
     random_path_label = ui.Label()
-    state.bind(random_path_label, 'text', 'random_path') # One-way bind the label
+    random_path.bind_to(random_path_label, 'text', lambda p: p) # Bind to the state object
 
     random_file_finder = ui.Column(props={"spacing": 5}, children=[
         ui.Label("Random File Finder", props={"font-size": "16px", "font-weight": "bold"}),
         random_path_label,
-        ui.Button("Find Random File", on_click=find_and_set_random_file)
+        ui.Button("Find Random File", on_click=lambda: find_and_set_random_file(random_path))
     ])
 
     # --- Two-Way Binding & Validation UI ---
     email_input = ui.Input(props={"placeholder": "Enter your email", "validation": "email"})
+    # Two-way binding still uses the manager directly for now.
     state.bind_two_way(email_input, 'email_value')
 
     email_mirror_label = ui.Label()
-    state.bind(email_mirror_label, 'text', 'email_value')
+    email_value.bind_to(email_mirror_label, 'text', lambda v: f"Live email state: {v}")
 
     name_input = ui.Input(props={"placeholder": "Name (must be > 10 chars)", "validation": lambda text: len(text) > 10})
     state.bind_two_way(name_input, 'name_value')
 
     name_mirror_label = ui.Label()
-    state.subscribe('name_value', name_mirror_label.set_text)
+    # Using bind_to is cleaner than state.subscribe + label.set_text
+    name_value.bind_to(name_mirror_label, 'text', lambda v: f"Live name state: {v}")
 
     form = ui.Column(props={"spacing": 5}, children=[
         ui.Label("Two-Way Binding & Validation", props={"font-size": "16px", "font-weight": "bold"}),

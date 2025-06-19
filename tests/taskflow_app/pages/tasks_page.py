@@ -1,23 +1,21 @@
-from winup import component, ui
+from winup import ui, component
+from tests.taskflow_app.components.task_list import TaskList
+from tests.taskflow_app.components.add_task_form import AddTaskForm
+
+# --- Main Page Component ---
 
 @component
 def TasksPage():
     """
     The main page for displaying and managing tasks.
+    It's now a simple layout component, as the children manage their own state.
     """
-    # Imports are here to avoid circular dependencies if they grow complex
-    from ..components.add_task_form import AddTaskForm
-    from ..components.task_list import TaskList
     
-    # Each major section of the page is its own component or styled frame
-    add_task_card = AddTaskForm()
-    
-    tasks_list_card = ui.Column(
+    return ui.Column(
+        props={"spacing": 15, "class": "page", "objectName": "tasks-page"},
         children=[
-            ui.Label("To-Do", props={"font-weight": "bold", "font-size": "18px"}),
-            TaskList()
-        ],
-        props={"class": "card"}
-    )
-
-    return ui.Column(children=[add_task_card, tasks_list_card], props={"spacing": 20}) 
+            ui.Label("My Tasks", props={"class": "h1"}),
+            AddTaskForm(),
+            TaskList(),
+        ]
+    ) 

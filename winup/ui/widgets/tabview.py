@@ -8,4 +8,7 @@ class TabView(QTabWidget):
         for title, widget in tabs.items():
             self.addTab(widget, title)
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)
+
+    def add_tab(self, widget: QWidget, label: str):
+        self.addTab(widget, label)

@@ -39,16 +39,20 @@ class TaskManager:
         self.threadpool.setMaxThreadCount(max_threads)
         print(f"Task manager initialized with {self.threadpool.maxThreadCount()} background threads.")
 
-    def run(self, on_finish: Callable = None, on_error: Callable = None):
+    def run(self, on_finish: Callable = None, on_error: Callable = None, on_start: Callable = None):
         """
         Decorator to run a function in the background.
 
         Args:
             on_finish: A function to call with the result when the task is successful.
             on_error: A function to call with the exception details if the task fails.
+            on_start: A function to call just before the task begins.
         """
         def decorator(func):
             def wrapper(*args, **kwargs):
+                if on_start:
+                    on_start()
+                
                 worker = Worker(func, *args, **kwargs)
                 
                 if on_finish:

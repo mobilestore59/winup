@@ -1,56 +1,153 @@
-import time
-import os
+"""
+The WinUp Hot Reloading System.
+
+This module provides the core logic for automatically reloading the UI
+when source code files change.
+"""
+import sys
+import importlib
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import os
 from PySide6.QtCore import QObject, Signal
 
-class Reloader(QObject):
+def _import_from_string(import_str: str):
     """
-    A QObject that emits a signal when a file is changed.
-    This is necessary to bridge the watchdog thread with the main GUI thread.
+    Dynamically imports an attribute from a module given a string path.
+    e.g., "my_app.components:MyComponent"
     """
-    file_changed = Signal()
+    module_str, _, attr_str = import_str.rpartition(':')
+    if not module_str or not attr_str:
+        raise ImportError(f"Invalid import string '{import_str}'. Must be in 'module.path:attribute' format.")
+    
+    print(f"[Hot Reload] Importing '{attr_str}' from '{module_str}'")
+    module = importlib.import_module(module_str)
+    # The module might have been reloaded, so we need to get the fresh object.
+    importlib.reload(module)
+    return getattr(module, attr_str)
 
-class ChangeHandler(FileSystemEventHandler):
-    """A handler for file system events that triggers a QObject signal."""
-    def __init__(self, reloader: Reloader):
-        super().__init__()
-        self.reloader = reloader
-        self._last_event_time = 0
+
+# --- NEW: Signal Emitter for Cross-Thread Communication ---
+class _ReloadSignalEmitter(QObject):
+    """An object to safely emit signals from a background thread to the main GUI thread."""
+    reload_requested = Signal()
+
+
+# --- The main Hot Reload Service ---
+
+class _HotReloadService:
+    """A singleton service that manages file watching and UI reloading."""
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if not cls._instance:
+            cls._instance = super(_HotReloadService, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        # Prevent re-initialization
+        if hasattr(self, '_initialized') and self._initialized:
+            return
+        
+        self.observer = Observer()
+        self.signal_emitter = _ReloadSignalEmitter()
+        self._watched_files = set()
+        self._initialized = True
+        print("Hot Reload Service initialized.")
+    
+    def start(self, callback: callable):
+        """
+        Starts watching all non-site-package modules for changes.
+
+        Args:
+            callback: The function to call on the main thread when a file is changed.
+        """
+        # Connect the signal from the background thread to the main thread's callback
+        self.signal_emitter.reload_requested.connect(callback)
+        
+        project_paths = self._get_project_module_paths()
+        
+        event_handler = _ChangeHandler(self._on_file_changed)
+
+        for path in project_paths:
+            # Watch the directory of each project file
+            dir_path = os.path.dirname(path)
+            if dir_path and os.path.isdir(dir_path) and dir_path not in self._watched_files:
+                self.observer.schedule(event_handler, dir_path, recursive=False)
+                self._watched_files.add(dir_path)
+        
+        if not self.observer.is_alive():
+            self.observer.start()
+
+    def _get_project_module_paths(self) -> set:
+        """
+        Inspects sys.modules to find all file paths that are part of the
+        current project (i.e., not in site-packages).
+        """
+        paths = set()
+        site_packages_path = os.path.normpath(sys.prefix)
+
+        for module_name, module in sys.modules.items():
+            if hasattr(module, '__file__') and module.__file__:
+                module_path = os.path.normpath(module.__file__)
+                # Ignore files in the standard library and site-packages
+                if site_packages_path not in module_path:
+                    # Also ignore the framework's own files to prevent cycles
+                    if 'winup' not in module_path:
+                        paths.add(module_path)
+        return paths
+
+    def _on_file_changed(self, file_path: str):
+        """
+        Handles the file change event. Invalidates the import cache for the
+        changed module and triggers the reload signal.
+        """
+        if not file_path.endswith('.py'):
+            return
+
+        print(f"Detected change in: {file_path}. Requesting reload...")
+        
+        # --- NEW: More robust module finding ---
+        module_to_reload = None
+        # Normalize the path for reliable comparison
+        normalized_path = os.path.normpath(file_path)
+
+        for module in sys.modules.values():
+            if hasattr(module, '__file__') and module.__file__:
+                if os.path.normpath(module.__file__) == normalized_path:
+                    module_to_reload = module
+                    break
+        
+        if module_to_reload:
+            try:
+                # The '__main__' module cannot be reloaded, but we still want to
+                # trigger the UI refresh to pick up changes.
+                if module_to_reload.__name__ == '__main__':
+                    print(f"[Hot Reload] Change detected in __main__ module. Triggering UI refresh without reload.")
+                else:
+                    print(f"[Hot Reload] Reloading module: {module_to_reload.__name__}")
+                    importlib.reload(module_to_reload)
+                
+                # Emit signal to trigger callback on the main thread
+                self.signal_emitter.reload_requested.emit()
+
+            except Exception as e:
+                print(f"[Hot Reload] Error: {e}")
+        else:
+            print(f"Warning: Could not find module for path {file_path}")
+
+# --- Watchdog Event Handler ---
+
+class _ChangeHandler(FileSystemEventHandler):
+    """A simple handler that calls a callback on any file modification."""
+    def __init__(self, on_change_callback):
+        self._on_change = on_change_callback
 
     def on_modified(self, event):
-        # Debounce the event to avoid multiple triggers for one save
-        if time.time() - self._last_event_time < 0.5:
-            return
-        self._last_event_time = time.time()
-        
         if not event.is_directory:
-            print(f"Hot Reload: Detected change in {event.src_path}. Emitting signal...")
-            self.reloader.file_changed.emit()
+            self._on_change(event.src_path)
 
-def hot_reload(file_path: str, callback: callable):
-    """
-    Sets up a file watcher to trigger a callback on the main GUI thread.
-    
-    Args:
-        file_path: The path to the file to watch.
-        callback: The function to call when the file is modified.
-    """
-    from winup.core.window import _winup_app
-    
-    # The reloader object must be parented to the main window or app
-    # to ensure it lives in the main GUI thread.
-    reloader = Reloader(parent=_winup_app.app)
-    reloader.file_changed.connect(callback)
+# --- Public API ---
 
-    event_handler = ChangeHandler(reloader)
-    observer = Observer()
-    # Watch the directory of the file, not the file itself, as that is more reliable
-    observer.schedule(event_handler, path=os.path.dirname(file_path), recursive=False)
-    observer.start()
-    
-    # The observer runs in a background thread, so this function will not block.
-    # We can store the observer on the app object if we need to stop it later.
-    if not hasattr(_winup_app, 'observers'):
-        _winup_app.observers = []
-    _winup_app.observers.append(observer) 
+# Singleton instance of the service
+hot_reload_service = _HotReloadService()

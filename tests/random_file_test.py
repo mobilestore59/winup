@@ -57,7 +57,7 @@ def RandomFileApp():
 
 if __name__ == "__main__":
     winup.run(
-        main_component=RandomFileApp,
+        main_component_path="random_file_test:RandomFileApp",
         title="Random File Finder",
         width=700,
         height=200

@@ -4,68 +4,60 @@ import os
 # Add the project root to the path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# Apply the critical patch for the state manager
+
 import winup
-from winup import ui
-from taskflow_app.themes import light_theme, dark_theme
-from taskflow_app.database import TaskDatabase
-from taskflow_app.components.navbar import Navbar
-from taskflow_app.pages.tasks_page import TasksPage
-from taskflow_app.pages.settings_page import SettingsPage
+from winup import ui, style, state, tasks
+from tests.taskflow_app.database import init_db, get_tasks, add_task, delete_task, toggle_task_status
+from tests.taskflow_app.components.navbar import Navbar
+from tests.taskflow_app.pages.tasks_page import TasksPage
+from tests.taskflow_app.pages.settings_page import SettingsPage
+from tests.taskflow_app.themes import apply_base_theme
+
+# --- 1. State and DB Initialization ---
+
+init_db()
+# Create the reactive state objects that will drive the application
+state.create("tasks", get_tasks())
+state.create("current_page", "tasks")
+
+# --- 2. Main Application Component ---
 
 @winup.component
 def App():
-    """The main component for the TaskFlow application."""
+    """The root component for the TaskFlow application."""
+    apply_base_theme()
     
-    # --- Database and State Initialization ---
-    db = TaskDatabase()
-    winup.state.set('db', db)
-    winup.state.set('theme', 'light')
-    winup.state.set('current_page', 'tasks')
-    winup.state.set('tasks', db.load_tasks())
+    # The page container needs a layout to be able to hold children.
+    page_container = ui.Frame(props={"id": "page-container", "layout": "vertical"})
 
-    # --- Page Container (Deck) ---
-    # The Deck widget shows only one child at a time.
-    page_container = ui.Deck()
-    tasks_page = TasksPage()
-    settings_page = SettingsPage()
-    page_container.addWidget(tasks_page)
-    page_container.addWidget(settings_page)
+    def on_page_change(page):
+        # This function is now much simpler.
+        # It just swaps the component in the container.
+        ui.clear_layout(page_container.layout())
+        if page == 'tasks':
+            page_container.add_child(TasksPage())
+        elif page == 'settings':
+            page_container.add_child(SettingsPage())
 
-    # --- Reactive Logic ---
+    state.subscribe("current_page", on_page_change)
+    on_page_change(state.get("current_page")) # Initial page load
 
-    def switch_theme(theme_name):
-        """Applies the selected theme dictionary to the app."""
-        theme_dict = dark_theme if theme_name == 'dark' else light_theme
-        winup.style.add_style_dict(theme_dict)
-
-    def switch_page(page_name):
-        """Switches the visible page in the Deck."""
-        if page_name == 'tasks':
-            page_container.setCurrentWidget(tasks_page)
-        elif page_name == 'settings':
-            page_container.setCurrentWidget(settings_page)
-
-    # Subscribe our functions to state changes
-    winup.state.subscribe('theme', switch_theme)
-    winup.state.subscribe('current_page', switch_page)
-
-    # Initialize the default theme and page
-    switch_theme(winup.state.get('theme'))
-    switch_page(winup.state.get('current_page'))
-
-    # The root component is a Column containing the Navbar and the page container
-    return ui.Column(
+    return ui.Frame(
+        props={"id": "main-window"},
         children=[
             Navbar(),
             page_container
         ]
     )
 
-# --- Run App ---
+# --- 3. Run Application ---
+
 if __name__ == "__main__":
     winup.run(
-        main_component=App, 
-        title="TaskFlow - A WinUp Showcase", 
-        width=800, 
-        height=600
+        main_component_path="tests.taskflow:App",
+        title="TaskFlow - WinUp Demo",
+        width=450,
+        height=600,
+        dev=True
     ) 

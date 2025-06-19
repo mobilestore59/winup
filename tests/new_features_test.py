@@ -6,31 +6,26 @@ from winup import ui, traits, state
 def create_widgets_demo_tab():
     """This component demonstrates the new widgets."""
     
-    # Use the state manager to reactively update a label
-    state.set("switch_status", "OFF")
-    state.set("combo_selection", "Item 1")
+    # Create state objects for the switch and combobox
+    switch_status = state.create("switch_status", "OFF")
+    combo_selection = state.create("combo_selection", "Item 1")
 
     status_label = ui.Label("")
     
-    def update_label(_=None):
-        status_label.set_text(
-            f"Switch is {state.get('switch_status')}, "
-            f"Selection is {state.get('combo_selection')}"
-        )
+    # Bind the label's text to both state objects.
+    # The formatter function will be called whenever either state changes.
+    switch_status.and_(combo_selection).bind_to(
+        status_label,
+        'text',
+        lambda status, selection: f"Switch is {status}, Selection is {selection}"
+    )
     
-    # Handlers to update the state
+    # Handlers to update the state using the new objects
     def handle_switch_toggle(checked):
-        state.set("switch_status", "ON" if checked else "OFF")
+        switch_status.set("ON" if checked else "OFF")
 
     def handle_combo_change(new_text):
-        state.set("combo_selection", new_text)
-
-    # Subscribe the label to state changes
-    state.subscribe("switch_status", update_label)
-    state.subscribe("combo_selection", update_label)
-
-    # Initial update
-    update_label()
+        combo_selection.set(new_text)
 
     return ui.Column(props={"spacing": 15, "margin": "20px"}, children=[
         ui.Label("New Widget Demo", props={"font-size": "16px", "font-weight": "bold"}),

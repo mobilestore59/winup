@@ -20,6 +20,7 @@ def get_random_file():
     return random.choice(all_paths) if all_paths else "No files found."
 
 # --- Main Application Component ---
+@winup.component
 def ToolsDemoApp():
     """Main component for the tools demonstration application."""
     
@@ -57,10 +58,11 @@ def ToolsDemoApp():
 # --- Run App & Report ---
 if __name__ == "__main__":
     winup.run(
-        main_component=ToolsDemoApp,
+        main_component_path="tests.tools_demo:ToolsDemoApp",
         title="Window Tools & Profiler Demo",
         width=700,
-        height=400
+        height=400,
+        dev=True
     )
     
     # After the app closes, the profiler will print its results.

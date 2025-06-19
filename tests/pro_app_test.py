@@ -21,10 +21,12 @@ def task_error(error_details):
     print(f"An error occurred in the background task: {e}")
     shell.StatusBar.show_message(f"Error: {e}", 5000)
 
-# The function to be run in the background
-@tasks.run(on_finish=task_finished, on_error=task_error)
-def long_running_task(duration):
+def task_started():
     shell.StatusBar.show_message("Running background task...")
+
+# The function to be run in the background
+@tasks.run(on_finish=task_finished, on_error=task_error, on_start=task_started)
+def long_running_task(duration):
     print(f"Starting a long task for {duration} seconds...")
     time.sleep(duration)
     if duration > 3:
@@ -78,7 +80,7 @@ def App():
 
 if __name__ == "__main__":
     winup.run(
-        main_component=App,
+        main_component_path="pro_app_test:App",
         title="Professional App Demo",
         width=700,
         height=400,

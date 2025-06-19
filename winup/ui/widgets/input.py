@@ -13,7 +13,7 @@ VALIDATION_PATTERNS = {
 }
 
 class Input(QLineEdit):
-    def __init__(self, placeholder="", text="", props=None, validation=None, on_submit: Optional[Callable] = None, **kwargs):
+    def __init__(self, placeholder="", text="", props=None, validation=None, on_submit: Optional[Callable] = None, on_text_changed: Optional[Callable] = None, **kwargs):
         super().__init__(**kwargs)
         if placeholder:
             self.setPlaceholderText(placeholder)
@@ -23,11 +23,15 @@ class Input(QLineEdit):
         self.validation_rule = validation
         self.textChanged.connect(self._on_text_changed)
         
+        # Connect the custom text changed handler if provided
+        if on_text_changed:
+            self.textChanged.connect(on_text_changed)
+        
         if on_submit:
             self.returnPressed.connect(on_submit)
 
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)
         
         # Initial validation check
         self._on_text_changed(self.text())

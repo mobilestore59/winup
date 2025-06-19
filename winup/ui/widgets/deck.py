@@ -10,7 +10,7 @@ class Deck(QStackedWidget):
         super().__init__(**kwargs)
         
         if props:
-            style.styler.apply_props(self, props)
+            style.apply_props(self, props)
         
         if children:
             for child in children:

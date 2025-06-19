@@ -42,6 +42,7 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
     *   **Hot Reloading:** See your UI changes instantly without restarting your app.
     *   **Profiler:** Easily measure the performance of any function with the `@profiler.measure()` decorator.
     *   **Window Tools:** Center, flash, or manage your application window with ease.
+*   **Built-in Routing:** Easily create multi-page applications with an intuitive, state-driven router.
 *   **Flexible Data Layer:** Includes simple, consistent connectors for SQLite, PostgreSQL, MySQL, MongoDB, and Firebase.
 
 ---
@@ -115,6 +116,71 @@ def App():
     )
 ```
 
+### Advanced Layouts: Stack, Grid, and Stretch
+
+Beyond simple `Row` and `Column`, WinUp provides more advanced layouts for building complex UIs.
+
+**1. Stack Layout**
+
+A `Stack` layout places its children on top of each other, like a deck of cards. Only one child is visible at a time. This is perfect for wizards, tab-less interfaces, or navigation with a `RouterView`.
+
+```python
+def App():
+    # The main stack layout
+    main_stack = ui.Stack(children=[
+        ui.Label("Page 1"),
+        ui.Label("Page 2"),
+    ])
+
+    # Controls to switch between pages
+    return ui.Column(children=[
+        main_stack,
+        ui.Row(children=[
+            ui.Button("Show Page 1", on_click=lambda: main_stack.set_current_index(0)),
+            ui.Button("Show Page 2", on_click=lambda: main_stack.set_current_index(1)),
+        ])
+    ])
+```
+
+**2. Grid Layout**
+
+For form fields, dashboards, or calculator-style interfaces, the `Grid` layout is ideal. You specify children as tuples containing the widget and its grid position: `(widget, row, col)`. You can also specify row and column spans: `(widget, row, col, row_span, col_span)`.
+
+```python
+def App():
+    return ui.Grid(
+        props={"spacing": 10},
+        children=[
+            # A 2x2 grid
+            (ui.Button("Top-Left"), 0, 0),
+            (ui.Button("Top-Right"), 0, 1),
+            (ui.Button("Bottom-Left"), 1, 0),
+            (ui.Button("Bottom-Right"), 1, 1),
+            
+            # A button spanning two columns
+            (ui.Button("Full-Width Button"), 2, 0, 1, 2) # (widget, row, col, rowspan, colspan)
+        ]
+    )
+```
+
+**3. Row & Column Stretching (Flexbox-like)**
+
+To create flexible UIs that adapt to window size, you can add a `stretch` factor to children of a `Row` or `Column`. This works like the `flex-grow` property in CSS. A child with a higher stretch factor will take up more available space.
+
+In this example, the middle label (`stretch: 2`) will be twice as wide as the other two.
+
+```python
+def App():
+    return ui.Row(
+        props={"spacing": 5},
+        children=[
+            (ui.Label("Takes up 1 part"), {"stretch": 1}),
+            (ui.Label("Takes up 2 parts"), {"stretch": 2}),
+            (ui.Label("Takes up 1 part"), {"stretch": 1}),
+        ]
+    )
+```
+
 ### Styling
 
 You can style any widget by passing a `props` dictionary. Props can be CSS-like properties, or special keywords like `class` and `id` for use with a global stylesheet.
@@ -138,39 +204,151 @@ def App():
     return ui.Button("Primary Button", props={"class": "btn-primary"})
 ```
 
-### Extending Widgets
+### Theming and Dynamic Styling
 
-WinUp allows you to replace any default widget with your own custom class. This is perfect for creating highly specialized components or for integrating widgets written in C++.
+WinUp includes a powerful theming system that lets you define and switch between different looks for your application (e.g., light and dark mode) at runtime.
 
-To do this, simply create a class that inherits from the widget you want to replace (or from a base Qt class) and then register it with the framework before you run your app.
+The system is built on a simple concept: **theme variables**. You define your application's stylesheet using variables (like `$primary-color` or `$text-color`). Then, you can define multiple "themes" that provide concrete values for these variables.
+
+**1. Using Theme Variables**
+
+You can use theme variables in two places:
+*   In a global stylesheet using `style.styler.add_style_dict()`.
+*   Directly in a widget's `props` dictionary.
 
 ```python
-# To subclass a default widget, you must import it directly
-from winup.ui.widgets.button import Button as DefaultButton
+# Define styles using variables
+style.styler.add_style_dict({
+    "QPushButton#action-button": {
+        "background-color": "$primary-color",
+        "color": "$primary-text-color",
+        "font-weight": "bold",
+    },
+    "QLabel.title": {
+        "color": "$text-color",
+        "font-size": "24px",
+    }
+})
 
-# 1. Create your custom widget class
-class BigRedButton(DefaultButton):
-    def __init__(self, text: str, on_click: callable = None):
-        # Define some custom props to make it unique
-        custom_props = {
-            "background-color": "red",
-            "color": "white",
-            "font-size": "20px",
-            "font-weight": "bold",
-            "padding": "15px",
-        }
-        super().__init__(text=text, on_click=on_click, props=custom_props)
+# Use variables directly in props
+def App():
+    return ui.Frame(
+        props={"background-color": "$background-color"},
+        children=[
+            ui.Label("Hello Themed World!", props={"class": "title"}),
+            ui.Button("Click Me", props={"id": "action-button"}),
+        ]
+    )
+```
 
-# In your main script:
-if __name__ == "__main__":
-    # 2. Register your custom class to override the default "Button"
-    ui.register_widget("Button", BigRedButton)
-    
-    # 3. Now, every call to ui.Button() will create a BigRedButton instead!
-    def App():
-        return ui.Button("I am a custom button!")
+**2. Switching Themes**
 
-    winup.run(main_component=App)
+WinUp comes with built-in `light` and `dark` themes. You can switch between them at any time using `style.styler.themes.set_theme()`.
+
+```python
+from winup import style
+
+def toggle_theme():
+    # Access the theme manager through the styler singleton
+    current_theme = style.styler.themes._active_theme_name
+    if current_theme == "light":
+        style.styler.themes.set_theme("dark")
+    else:
+        style.styler.themes.set_theme("light")
+
+# You can connect this function to a button click or a settings switch.
+# The entire application will automatically restyle itself.
+```
+
+**3. Creating Custom Themes**
+
+You can easily define your own themes by providing a dictionary of variable names to color values.
+
+```python
+from winup import style
+
+# Define a custom "matrix" theme
+matrix_theme = {
+    "primary-color": "#00FF41",
+    "primary-text-color": "#000000",
+    "background-color": "#0D0208",
+    "text-color": "#00FF41",
+    "border-color": "#008F11",
+    "hover-color": "#00A62A",
+}
+
+# Add it to the theme manager via the styler
+style.styler.themes.add_theme("matrix", matrix_theme)
+
+# Now you can switch to it
+style.styler.themes.set_theme("matrix")
+```
+
+### Creating Reusable Components
+
+While you can use raw `ui` elements everywhere, the best way to build a maintainable application is to create your own library of reusable components. WinUp provides two main ways to do this.
+
+**1. Styled Variants (Recommended)**
+
+This is the most common and powerful pattern. You can create a new, reusable component by wrapping a base widget with default `props`. This is perfect for creating a consistent design system (e.g., `PrimaryButton`, `SecondaryButton`, `Card`, `Avatar`).
+
+The `ui.create_component` function is the key to this pattern.
+
+```python
+# components.py
+from winup import ui
+
+# Create a PrimaryButton variant with default styles
+PrimaryButton = ui.create_component(
+    ui.Button,
+    {
+        "class": "btn-primary", # Target with global stylesheet
+        "padding": "10px 15px",
+        "font-weight": "bold",
+    }
+)
+
+# Create an AlertLabel variant
+AlertLabel = ui.create_component(
+    ui.Label,
+    {
+        "background-color": "$error-color",
+        "color": "$primary-text-color",
+        "padding": "10px",
+        "border-radius": "4px",
+    }
+)
+
+# --- In your main application ---
+# from components import PrimaryButton, AlertLabel
+
+def App():
+    return ui.Column(children=[
+        PrimaryButton("Click me!"),
+        # You can still override props at the instance level
+        PrimaryButton("Cancel", props={"background-color": "$disabled-color"}),
+        AlertLabel("Something went wrong!"),
+    ])
+```
+
+**2. Subclassing (For Advanced Behavior)**
+
+If you need to add new *behavior* to a widget (not just styles), you can fall back to standard Python subclassing. This is useful for creating highly specialized components with their own internal logic. After creating your class, you can register it with `ui.register_widget` to make it available everywhere.
+
+```python
+from winup.ui.widgets.input import Input as DefaultInput
+
+class PasswordInput(DefaultInput):
+    """An Input that hides text by default but has a toggle button."""
+    def __init__(self, props: dict = None):
+        super().__init__(props=props)
+        # In a real implementation, you would add a button here
+        # and connect it to self.setEchoMode().
+        self.setEchoMode(self.EchoMode.Password)
+
+# In your main script, before winup.run():
+# This makes `ui.PasswordInput()` available if you register it.
+# ui.register_widget("PasswordInput", PasswordInput)
 ```
 
 ### Traits System: Adding Behavior without Subclassing
@@ -179,7 +357,7 @@ While subclassing is great for creating new *kinds* of widgets, sometimes you ju
 
 Traits are modular behaviors that can be dynamically attached to any widget instance. WinUp comes with several built-in traits:
 
-*   `draggable`: Makes a widget draggable within its parent.
+*   `draggable` & `droptarget`: A powerful, data-driven system for drag-and-drop functionality.
 *   `context_menu`: Adds a custom right-click context menu.
 *   `tooltip`: A simple way to add a hover tooltip.
 *   `hover_effect`: Applies a `[hover="true"]` style property on mouse-over, which you can target in your stylesheets (e.g., `QPushButton[hover="true"]`).
@@ -187,274 +365,231 @@ Traits are modular behaviors that can be dynamically attached to any widget inst
 
 You can add a trait to any widget using `winup.traits.add_trait()`.
 
+**Example: Advanced Drag-and-Drop**
+
+The new drag-and-drop system is data-driven. You make a widget `draggable` and provide it with data. You make another widget a `droptarget` and tell it what kind of data it `accepts` and what to do `on_drop`.
+
 ```python
-# traits_demo.py
+# dnd_demo.py
 import winup
-from winup import ui, traits
+from winup import ui, traits, state
 
 def App():
-    # Let's create a simple label that we want to make interactive
-    my_label = ui.Label(
-        "I'm a draggable label with a context menu!",
-        props={
-            "padding": "15px",
-            "background-color": "#f0f0f0",
-            "border": "1px solid #ccc",
-            "border-radius": "5px"
-        }
-    )
+    # Use state to manage the lists
+    state.create("list_a", [{"id": 1, "text": "Item A"}])
+    state.create("list_b", [{"id": 2, "text": "Item B"}])
 
-    # Add the draggable trait
-    traits.add_trait(my_label, "draggable")
+    def move_item(source_list_key, target_list_key, item_id):
+        # Find the item and move it between the state lists
+        source_list = state.get(source_list_key)
+        item_to_move = next((item for item in source_list if item["id"] == item_id), None)
+        
+        if item_to_move:
+            new_source = [i for i in source_list if i["id"] != item_id]
+            state.set(source_list_key, new_source)
+            state.set(target_list_key, state.get(target_list_key) + [item_to_move])
 
-    # Add a context menu with a dictionary of actions
-    traits.add_trait(my_label, "context_menu", items={
-        "Say Hello": lambda: print("Hello from the context menu!"),
-        "---": None, # This creates a separator
-        "Reset Position": lambda: my_label.move(10, 10)
-    })
+    # A reusable component for our drop zones
+    @winup.component
+    def DropList(title, list_key, accepts_type):
+        list_container = ui.Column(props={"spacing": 5, "min-height": "100px", "background-color": "#f0f0f0", "padding": "10px"})
+        
+        # 1. Make the container a drop target
+        traits.add_trait(list_container, "droptarget",
+            accepts=[accepts_type],
+            on_drop=lambda data: move_item(data["source_list"], list_key, data["item_id"])
+        )
 
-    # The container needs a null layout for dragging to work relative to it
-    return ui.Frame(
-        children=[my_label],
-        props={"layout": "null"}
-    )
+        def render_list(items):
+            winup.core.hot_reload.clear_layout(list_container.layout())
+            for item in items:
+                # 2. Make each item draggable
+                draggable_widget = ui.Label(item["text"], props={"padding": "8px", "background-color": "white"})
+                traits.add_trait(draggable_widget, "draggable",
+                    data={"type": accepts_type, "item_id": item["id"], "source_list": list_key}
+                )
+                list_container.add_child(draggable_widget)
+        
+        state.subscribe(list_key, render_list)
+        render_list(state.get(list_key))
+        return ui.Column([ui.Label(title, props={"font-weight": "bold"}), list_container])
+
+    return ui.Row(props={"spacing": 20, "margin": "20px"}, children=[
+        DropList("List A (drag from here)", "list_a", "list-item"),
+        DropList("List B (drop here)", "list_b", "list-item"),
+    ])
 
 if __name__ == "__main__":
-    winup.run(main_component=App, title="Traits Demo")
+    winup.run(main_component=App, title="Drag and Drop Demo")
 ```
 
-### State Management
+### State Management: The Reactive Core
 
-WinUp's global `state` object is the single source of truth for your application's data.
+WinUp includes a powerful state management system that lets you create reactive UIs with minimal boilerplate. The new, recommended approach is object-oriented, making your code safer and more readable.
 
-**1. One-Way Binding (`bind`)**
+**The New Way: `state.create()` and `bind_to()` (Recommended)**
 
-The UI property updates automatically when `state.set()` is called.
+Instead of using string keys, you now create dedicated `State` objects. These objects are the single source of truth for your data and provide methods to interact with that data.
+
+The real power comes from the `bind_to()` method, which can link one or more state objects to *any* widget property, using a simple function to format the final value.
+
+**1. Simple Counter Example**
+
+Here, we create a `counter` state object and bind it to a label's `text` property. The `lambda` function formats the output.
 
 ```python
-# one_way_demo.py
+# new_state_demo.py
 import winup
 from winup import ui
 
-winup.state.set("counter", 0)
-
 def App():
-    # The label's 'text' property will be kept in sync with the 'counter' state key.
-    label = ui.Label(f"Initial Value: {winup.state.get('counter')}")
-    winup.state.bind(label, "text", "counter")
+    # 1. Create a state object with an initial value.
+    counter = winup.state.create("counter", 0)
+
+    # 2. Create the UI widgets.
+    label = ui.Label() 
+
+    # 3. Bind the state to the label's 'text' property.
+    # The lambda function will re-run whenever the counter changes.
+    counter.bind_to(label, 'text', lambda c: f"Counter Value: {c}")
 
     def increment():
-        winup.state.set("counter", winup.state.get("counter") + 1)
+        # 4. Use the state object's methods to update the value.
+        counter.set(counter.get() + 1)
 
     return ui.Column(children=[
         label,
         ui.Button("Increment", on_click=increment)
     ])
-```
-
-**2. Two-Way Binding (`bind_two_way`)**
-
-The UI updates the state, and the state updates the UI. This is perfect for forms.
-
-```python
-# two_way_demo.py
-import winup
-from winup import ui
-
-winup.state.set("username", "Guest")
-
-def App():
-    # This input is two-way bound to 'username'. Typing in the field
-    # immediately updates the state.
-    name_input = ui.Input()
-    winup.state.bind_two_way(name_input, "username")
-    
-    # This label is one-way bound and will update as you type.
-    greeting = ui.Label()
-    winup.state.bind(greeting, "text", "username")
-
-    return ui.Column(children=[ui.Label("Enter your name:"), name_input, greeting])
-```
-
-**3. Subscriptions (`subscribe`)**
-
-For more complex reactions to state changes, like formatting data or triggering other logic, use `subscribe`.
-
-```python
-# subscribe_demo.py
-import winup
-from winup import ui
-
-winup.state.set("username", "Guest")
-
-def App():
-    greeting = ui.Label()
-
-    # This function runs every time the 'username' state changes.
-    def update_greeting(new_name):
-        greeting.set_text(f"Hello, {new_name.upper()}!")
-    
-    winup.state.subscribe("username", update_greeting)
-    
-    # We still need a way to change the state.
-    name_input = ui.Input()
-    winup.state.bind_two_way(name_input, "username")
-
-    return ui.Column(children=[name_input, greeting])
-```
-
-### Multiple Windows
-
-You are not limited to a single window. The `winup.Window` class lets you spawn new, independent windows at any time. This is ideal for things like settings dialogs, tool palettes, or mini-player controls.
-
-The new window will have its own component and run in the same application event loop.
-
-```python
-import winup
-from winup import ui
-
-def MiniPlayerComponent():
-    """A simple component for the new window."""
-    return ui.Label("I'm a mini-player window!")
-
-def open_mini_player():
-    """Event handler to create and show the new window."""
-    player_component = MiniPlayerComponent()
-    # This creates and shows the new window instantly
-    winup.Window(
-        component=player_component, 
-        title="Mini Player", 
-        width=250, 
-        height=100
-    )
-
-def App():
-    """The main app component."""
-    return ui.Button("Open Player", on_click=open_mini_player)
 
 if __name__ == "__main__":
-    winup.run(main_component=App)
+    winup.run(main_component=App, title="New State Demo")
 ```
 
-### Application Shell
+**2. Multi-State Binding**
 
-WinUp provides simple, declarative classes to build the shell of a professional application. You can define menus, toolbars, and status bars and pass them directly to the `winup.run()` function.
+Need a widget to react to changes in *multiple* state values? Use the `and_()` method to combine them. The formatter `lambda` will receive the state values as arguments in the same order.
 
 ```python
-import winup
-from winup import ui, shell
-
-# 1. Define handlers for your actions
-def on_new(): print("Action: New")
-def on_quit(): winup.core.window._winup_app.app.quit()
-def on_about(): winup.ui.dialogs.show_message("About", "WinUp Shell Demo")
-
-# 2. Define the shell components
-app_menu = shell.MenuBar({
-    "&File": { "New": on_new, "---": None, "Quit": on_quit },
-    "&Help": { "About": on_about }
-})
-
-app_toolbar = shell.ToolBar({ "New": on_new }) # Add icons via the icon_dir argument
-app_statusbar = shell.StatusBar()
-
-# 3. Create your main component
 def App():
-    # The status bar is globally accessible after creation
-    shell.StatusBar.show_message("Welcome to WinUp!", 5000)
-    return ui.Label("App with a full shell!")
+    # Create two state objects
+    first_name = winup.state.create("first_name", "John")
+    last_name = winup.state.create("last_name", "Doe")
+    
+    greeting_label = ui.Label()
 
-# 4. Pass the shell components to the run function
-if __name__ == "__main__":
-    winup.run(
-        main_component=App,
-        title="App Shell Demo",
-        menu_bar=app_menu,
-        tool_bar=app_toolbar,
-        status_bar=app_statusbar
+    # Bind the label's text to BOTH state objects
+    first_name.and_(last_name).bind_to(
+        greeting_label,
+        'text',
+        lambda fn, ln: f"Full Name: {fn} {ln}"
     )
+
+    # ... widgets to change first_name and last_name
 ```
-*You can also add a `shell.SystemTrayIcon` for applications that need to run in the background.*
 
-### Asynchronous Tasks
+**3. Two-Way Binding for Inputs**
 
-Never freeze your UI again. The `@tasks.run` decorator makes it trivial to run any function on a background thread, with callbacks for success or failure.
+For the common case of syncing an `Input` widget with a state, the `bind_two_way()` helper is still available. It works directly with the state key.
 
 ```python
+email_input = ui.Input()
+# The input's value updates the state, and the state updates the input's value.
+winup.state.bind_two_way(email_input, 'email_value')
+```
+
+---
+**Legacy State Management (Old API)**
+
+For backward compatibility, the older, string-based API is still functional.
+
+*   `winup.state.set("key", value)`: Sets a value in the global store.
+*   `winup.state.get("key")`: Retrieves a value.
+*   `winup.state.bind(widget, "property", "key")`: A simple one-way binding to a widget's property.
+*   `winup.state.subscribe("key", callback)`: Calls a function whenever a value changes.
+
+```python
+# old_api_demo.py
+winup.state.set("legacy_counter", 0)
+label = ui.Label()
+winup.state.bind(label, "text", "legacy_counter") # Binds to the text property
+
+def increment():
+    winup.state.set("legacy_counter", winup.state.get("legacy_counter") + 1)
+```
+
+### Asynchronous Task Runner (`@tasks.run`)
+
+To keep your application responsive, any long-running operation (like a network request or a complex calculation) should be run on a background thread. WinUp makes this incredibly simple with the `@tasks.run` decorator.
+
+It handles all the complex threading logic for you. You just need to provide callbacks for when the task starts, finishes, or encounters an error.
+
+```python
+from winup import tasks, shell
 import time
-from winup import shell, tasks
 
-def on_task_complete(result):
-    """This function is called on the main UI thread when the task succeeds."""
-    print(f"Success! Result: {result}")
-    shell.StatusBar.show_message(f"Task finished: {result}", 4000)
+# These callbacks will be executed safely on the main GUI thread.
+def on_task_start():
+    shell.StatusBar.show_message("Processing...", -1) # Show message indefinitely
+
+def on_task_finish(result):
+    print(f"Task finished with result: {result}")
+    shell.StatusBar.show_message(f"Success: {result}", 5000) # Show for 5s
 
 def on_task_error(error_details):
-    """This function is called on the main UI thread if the task fails."""
-    exception, trace = error_details
-    print(f"Error in background task: {exception}")
-    shell.StatusBar.show_message(f"Error: {exception}", 4000)
+    exception, traceback_str = error_details
+    print(f"Task failed: {exception}")
+    shell.StatusBar.show_message(f"Error: {exception}", 5000)
 
-@tasks.run(on_finish=on_task_complete, on_error=on_task_error)
+# Decorate your long-running function
+@tasks.run(on_start=on_task_start, on_finish=on_task_finish, on_error=on_task_error)
 def fetch_data_from_server(url: str):
-    """
-    A simulated long-running task. This will not block the UI.
-    The decorator will pass its return value to 'on_finish'.
-    """
-    print("Starting background task...")
-    shell.StatusBar.show_message("Fetching data...")
-    time.sleep(2) # Simulate network latency
-    if "fail" in url:
+    """This function runs on a background thread."""
+    print("Fetching data...")
+    time.sleep(3) # Simulate a network request
+    if "error" in url:
         raise ConnectionError("Could not connect to server.")
-    return f"Data from {url}"
+    return "Data fetched successfully!"
 
-# You can now call this function from any event handler (e.g., a button click)
-# fetch_data_from_server("my-api.com/data")
-# fetch_data_from_server("my-api.com/fail")
+# In your UI, just call the function as you normally would.
+# WinUp will automatically delegate it to the background thread pool.
+def App():
+    return ui.Row(children=[
+        ui.Button("Fetch Data", on_click=lambda: fetch_data_from_server("my-api.com/data")),
+        ui.Button("Trigger Error", on_click=lambda: fetch_data_from_server("my-api.com/error")),
+    ])
 ```
+
+The decorator accepts three optional callback arguments:
+*   `on_start`: A function to call right before the task begins executing.
+*   `on_finish`: A function that will receive the return value of your function if it completes successfully.
+*   `on_error`: A function that will receive a `(exception, traceback)` tuple if your function raises an exception.
 
 ### Developer Tools
 
-**Hot Reloading:**
-To enable hot reloading, you manually start a watcher that calls a reload function. This gives you precise control over what gets reloaded.
+**Hot Reloading (React-style Fast Refresh):**
+WinUp now features a fully automatic, intelligent hot reloading system. Simply run your application with `dev=True`, and the framework will automatically watch all of your project's Python files for changes.
+
+When you save a file, WinUp will instantly reload the relevant parts of your code and re-render your UI without restarting the entire application, preserving your application's state. This provides a seamless development experience similar to modern web frameworks.
+
+**How to Use:**
+Just pass the `dev=True` flag to the `run` function. That's it!
 
 ```python
-# hot_reload_example.py
+# my_app.py
 import winup
 from winup import ui
-from winup.core import hot_reload
 
-# 1. Define your component(s) in a separate file (e.g., components.py)
-#
-# --- components.py ---
-# from winup import ui
-# def MyComponent():
-#     return ui.Label("Version 1 of my component")
-# ---------------------
-
-# 2. In your main app file, create a placeholder and a reload function
-app_container = ui.Frame() # A container to hold the component
-
-def reload_ui():
-    """This function clears the container and re-imports the component."""
-    hot_reload.clear_layout(app_container.layout())
-    # The reloader invalidates Python's import cache
-    from components import MyComponent 
-    app_container.add_child(MyComponent())
-    print("UI Reloaded!")
+@winup.component
+def App():
+    # Change this text, save the file, and see the UI update instantly.
+    return ui.Label("Hello, Hot Reloading!")
 
 if __name__ == "__main__":
-    # 3. Start the hot reloader before running the app
-    # It will watch 'components.py' and call 'reload_ui' when it changes.
-    reloader = hot_reload.FileChangeReloader('components.py', reload_ui)
-    reloader.start()
-
-    # 4. Run the app with the container, and load the initial UI
-    reload_ui() # Initial load
-    winup.run(main_component=lambda: app_container, title="Hot Reload App")
+    # Run in development mode to enable hot reloading.
+    winup.run(main_component=App, title="Hot Reload Demo", dev=True)
 ```
-*This setup allows you to see UI changes instantly just by saving your component file.*
+*This setup allows you to see UI changes instantly just by saving any file in your project.*
 
 **Performance & Memoization:**
 For UIs that render large amounts of data, you can significantly improve performance by caching component results. The `@winup.memo` decorator automatically caches the widget created by a component. If the component is called again with the same arguments, the cached widget is returned instantly instead of being re-created.
@@ -493,6 +628,350 @@ def some_expensive_function():
     import time
     time.sleep(1)
 ```
+
+### Built-in Routing: Creating Multi-Page Applications
+
+WinUp includes a simple yet powerful router that allows you to build applications with multiple pages or views, like a settings screen, a user dashboard, or different application tabs.
+
+The system is built around three core concepts:
+
+1.  **`Router`**: An object that holds your application's routes (a mapping of a path like `"/home"` to a component function) and manages the current state.
+2.  **`RouterView`**: A special component that acts as a placeholder. It automatically displays the correct component for the current route.
+3.  **`RouterLink`**: A clickable component (like a hyperlink) that tells the `Router` to navigate to a different path.
+
+**Example: A Simple Multi-Page App**
+
+Here's how you can structure a basic application with a "Home" and "Settings" page.
+
+```python
+# multi_page_app.py
+import winup
+from winup import ui
+from winup.router import Router, RouterView, RouterLink
+
+# 1. Define your page components
+@winup.component
+def HomePage():
+    return ui.Label("Welcome to the Home Page!", props={"font-size": "18px"})
+
+@winup.component
+def SettingsPage():
+    return ui.Column(children=[
+        ui.Label("Settings", props={"font-size": "18px"}),
+        ui.Switch(text="Enable Dark Mode")
+    ])
+
+# 2. Create a router instance with your routes
+app_router = Router({
+    "/": HomePage,
+    "/settings": SettingsPage,
+})
+
+# 3. Build the main application layout
+def App():
+    return ui.Column(
+        props={"spacing": 15, "margin": "10px"},
+        children=[
+            # Navigation links
+            ui.Row(
+                props={"spacing": 20},
+                children=[
+                    RouterLink(router=app_router, to="/", text="Home"),
+                    RouterLink(router=app_router, to="/settings", text="Settings")
+                ]
+            ),
+            # The RouterView will render either HomePage or SettingsPage
+            ui.Frame(
+                props={"border": "1px solid #ccc", "padding": "10px"},
+                children=[
+                    RouterView(router=app_router)
+                ]
+            )
+        ]
+    )
+
+if __name__ == "__main__":
+    # You need to create the router files first for this to work.
+    # See the implementation details below.
+    winup.run(main_component=App, title="Multi-Page App Demo")
+```
+
+<details>
+<summary><b>Implementation: Click to see the code for router.py</b></summary>
+
+Since I had trouble creating the files, here is the code you can place in `winup/router/router.py`.
+
+```python
+# winup/router/router.py
+from typing import Dict, Callable
+import winup
+from winup import ui
+from winup.core.component import Component
+from winup.core.hot_reload import clear_layout
+
+class Router:
+    """Manages navigation and application state for different UI views."""
+    def __init__(self, routes: Dict[str, Callable[[], Component]]):
+        if not routes:
+            raise ValueError("Router must be initialized with at least one route.")
+        
+        self.routes = routes
+        initial_path = list(routes.keys())[0]
+        
+        # Use WinUp's state manager to make the current route reactive.
+        self.state = winup.state.create("router_current_path", initial_path)
+
+    def navigate(self, path: str):
+        """Navigates to the given path if it exists in the routes."""
+        if path in self.routes:
+            self.state.set(path)
+        else:
+            print(f"Error: Route '{path}' not found.")
+
+    def get_component_for_path(self, path: str) -> Callable[[], Component] | None:
+        """Returns the component factory for a given path."""
+        return self.routes.get(path)
+
+@winup.component
+def RouterView(router: Router) -> Component:
+    """
+    A component that displays the view for the current route.
+    It listens to route changes and updates its content automatically.
+    """
+    view_container = ui.Frame(props={"objectName": "router-view-container"})
+
+    def _update_view(path: str):
+        """Clears the container and renders the new component."""
+        component_factory = router.get_component_for_path(path)
+        if component_factory:
+            if view_container.layout() is not None:
+                clear_layout(view_container.layout())
+            
+            new_component = component_factory()
+            view_container.add_child(new_component)
+
+    router.state.subscribe(_update_view)
+    _update_view(router.state.get())
+
+    return view_container
+
+@winup.component
+def RouterLink(router: Router, to: str, text: str, props: Dict = None) -> Component:
+    """
+    A navigational component that triggers a route change on click.
+    """
+    def handle_click():
+        router.navigate(to)
+
+    link_props = {
+        "font-family": "Segoe UI",
+        "text-decoration": "none",
+        "color": "#0078D4",
+        "border": "none",
+        "background-color": "transparent",
+        "cursor": "PointingHandCursor",
+        "text-align": "left",
+        "padding": "0"
+    }
+    
+    if props:
+        link_props.update(props)
+
+    return ui.Button(text, on_click=handle_click, props=link_props)
+```
+
+And for `winup/router/__init__.py`:
+
+```python
+from .router import Router, RouterView, RouterLink
+
+__all__ = ["Router", "RouterView", "RouterLink"]
+```
+</details>
+
+### Component Lifecycle Hooks: `on_mount` and `on_unmount`
+
+To manage side effects—like fetching data, setting up timers, or starting animations—WinUp components now have lifecycle hooks. These are special functions you can pass to a component that run at specific times.
+
+*   `on_mount`: This function is called exactly once, right after the component's UI has been created and added to the scene (i.e., it has "mounted"). It's the perfect place to load data or start animations.
+*   `on_unmount`: This function is called exactly once, just before the component is destroyed and removed from the scene. It's essential for cleanup tasks, like canceling network requests, invalidating timers, or saving state.
+
+**Example: A Self-Updating Clock**
+
+This example demonstrates how to use `on_mount` to start a timer and `on_unmount` to clean it up, preventing memory leaks.
+
+```python
+# lifecycle_demo.py
+import winup
+from winup import ui, state
+from PySide6.QtCore import QTimer
+
+@winup.component
+def Clock():
+    # 1. A state to hold the current time string
+    time_state = state.create("current_time", "Loading...")
+    
+    # 2. A variable to hold our QTimer instance
+    timer = None
+
+    def update_time():
+        # This function will be called by the timer
+        import datetime
+        now = datetime.datetime.now()
+        time_state.set(now.strftime("%H:%M:%S"))
+
+    def on_mount():
+        nonlocal timer
+        print("Clock Mounted: Starting timer.")
+        # Create and start the timer when the component appears
+        timer = QTimer()
+        timer.timeout.connect(update_time)
+        timer.start(1000) # Update every 1000 ms (1 second)
+        update_time() # Initial update
+
+    def on_unmount():
+        nonlocal timer
+        print("Clock Unmounted: Stopping timer.")
+        # Stop the timer when the component disappears to avoid errors
+        if timer:
+            timer.stop()
+            timer = None
+
+    # 3. Create a label and bind its text to our state
+    time_label = ui.Label()
+    time_state.bind_to(time_label, 'text', lambda t: f"Current Time: {t}")
+
+    # 4. Pass the hooks to the component container
+    return ui.Frame(
+        children=[time_label],
+        on_mount=on_mount,
+        on_unmount=on_unmount
+    )
+
+# A simple app to show/hide the clock to test the hooks
+def App():
+    visibility_state = state.create("clock_visible", True)
+
+    def toggle_clock():
+        visibility_state.set(not visibility_state.get())
+
+    placeholder = ui.Frame(props={"min-height": "50px"})
+    
+    def on_visibility_change(is_visible):
+        clear_layout(placeholder.layout())
+        if is_visible:
+            placeholder.add_child(Clock())
+        else:
+            placeholder.add_child(ui.Label("Clock is hidden."))
+            
+    visibility_state.subscribe(on_visibility_change)
+    on_visibility_change(visibility_state.get()) # Initial render
+
+    return ui.Column(children=[
+        ui.Button("Toggle Clock", on_click=toggle_clock),
+        placeholder
+    ])
+
+if __name__ == "__main__":
+    # You will need to import clear_layout from winup.core.hot_reload
+    from winup.core.hot_reload import clear_layout 
+    winup.run(main_component=App, title="Lifecycle Demo")
+```
+
+### Built-in Animations & Effects
+
+WinUp provides a simple API for creating smooth animations, located in the `winup.animate.fx` module. You can easily fade widgets in and out or animate any of their properties.
+
+**Example: Fading and Moving**
+
+This example shows how to use `fade_in`, `fade_out`, and the generic `animate` function to move a widget.
+
+```python
+# animation_demo.py
+import winup
+from winup import ui
+from winup.animate import fx # Import the animation functions
+from PySide6.QtCore import QRect
+
+def App():
+    
+    animated_label = ui.Label(
+        "Animate Me!",
+        props={"padding": "20px", "background-color": "#ADD8E6"}
+    )
+    
+    def slide_in():
+        # Animate the widget's geometry (position and size)
+        start_rect = animated_label.geometry()
+        end_rect = QRect(20, 20, start_rect.width(), start_rect.height())
+        fx.animate(animated_label, b"geometry", end_rect, 500)
+
+    # Place the label in a container with a null layout for manual positioning
+    container = ui.Frame(
+        props={"layout": "null"},
+        children=[animated_label]
+    )
+    
+    # Start the label faded out
+    fx.fade_out(animated_label, duration=0)
+
+    return ui.Column(props={"margin":"20px", "spacing": 10}, children=[
+        container,
+        ui.Row(props={"spacing": 10}, children=[
+            ui.Button("Fade In", on_click=lambda: fx.fade_in(animated_label, 300)),
+            ui.Button("Fade Out", on_click=lambda: fx.fade_out(animated_label, 300)),
+            ui.Button("Slide In", on_click=slide_in),
+        ])
+    ])
+
+if __name__ == "__main__":
+    winup.run(App, title="Animation Demo")
+```
+
+---
+
+## Hot Reloading for Development
+
+WinUp includes a powerful hot-reloading feature to accelerate development. When enabled, any changes you make to your component files will be reflected instantly in your running application without needing a manual restart.
+
+### How it Works
+
+The hot-reloading service monitors your project's Python files. When a change is detected, it intelligently reloads the necessary modules and redraws the UI, preserving the application's state. This is ideal for iterating quickly on UI design and component logic.
+
+### Enabling Hot Reload
+
+To enable hot reloading, you must run your application in development mode. This is done by passing `dev=True` to the `winup.run()` function.
+
+You also need to provide the main component as a string path in the format `"path.to.module:ComponentName"`. This allows WinUp to dynamically re-import your component when the source file changes.
+
+### Example
+
+Here is how you would structure your main application script to use hot reloading:
+
+```python
+# main.py
+import winup
+import sys
+import os
+
+# Assume 'my_app' is your components package
+from my_app.my_component import App 
+
+if __name__ == "__main__":
+    # Add the project root to the path to ensure modules can be found
+    project_root = os.path.abspath(os.path.dirname(__file__))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # Run the app with hot reloading enabled
+    winup.run(
+        main_component_path="my_app.my_component:App",
+        title="My App with Hot Reload",
+        dev=True
+    )
+```
+
+Now, when you run `python main.py`, any changes you make to `my_app/my_component.py` (or any other component file) will be reflected instantly.
 
 ---
 

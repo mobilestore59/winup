@@ -14,8 +14,8 @@ def Card(title: str, children: list = []):
 
     # The Frame widget handles its own layout and children
     return ui.Frame(
-        color="#f8f9fa",
-        radius=8,
-        direction="column",
+        background_color="#f8f9fa",
+        border_radius="8px",
+        layout="vertical",
         children=all_children
     ) 
