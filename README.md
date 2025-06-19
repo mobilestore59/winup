@@ -21,6 +21,26 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
 
 **In short, WinUp provides the "killer features" of modern web frameworks (like React or Vue) for the desktop, saving you time and letting you focus on what matters: your application's logic.**
 
+# 🧊 WinUp vs 🧱 PyEdifice (Reddit User Request)
+
+| Feature                          | WinUp (with your improvements)       | PyEdifice                        |
+|----------------------------------|--------------------------------------|----------------------------------|
+| 🧱 Architecture                  | React-style w/ plugins + state       | React-style + state              |
+| 🌐 Built-in Routing              | ✅ Yes (`Router(routes={...})`)      | ❌ No built-in routing            |
+| ♻️ Lifecycle Hooks               | ✅ `on_mount`, `on_unmount`, etc.    | ⚠️ Limited (`did_mount`, etc.)   |
+| 🎨 Theming / Styling System     | ✅ Global & Scoped themes             | ❌ Manual CSS injection           |
+| 🔲 Layout Options                | ✅ Row, Column, Grid, Stack, Flexbox | ⚠️ Mostly Box & HBox/VBox         |
+| 🎞️ Animations                   | ✅ Built-in (fade, scale, etc.)      | ❌ None built-in                  |
+| 🔁 Hot Reloading (LHR)          | ✅ Stable + fast (`loadup dev`)      | ⚠️ Experimental, limited support  |
+| 📦 Packaging                    | ✅ With LoadUp (PyInstaller-based)   | ❌ Must integrate PyInstaller manually |
+| 🧩 Component Reusability        | ✅ High, declarative                 | ✅ High                           |
+| 🛠 Developer Tooling            | ✅ DevTools planned, Inspector soon  | ❌ None yet                       |
+| 📱 Mobile Support               | ❌ Not yet                           | ❌ Not supported                  |
+| 🧠 Learning Curve               | ✅ Easy for Python+React users       | ✅ Easy but less tooling          |
+
+> ✅ = Built-in or robust  
+> ⚠️ = Partial or limited  
+> ❌ = Missing entirely
 ---
 
 ## Core Features
@@ -50,7 +70,7 @@ Desktop development in Python can feel clunky. WinUp was built to fix that.
 ## Installation
 
 ```bash
-pip install winup watchdog
+pip install winup
 ```
 *The `watchdog` library is required for the Hot Reloading feature.*
 
@@ -587,7 +607,7 @@ def App():
 
 if __name__ == "__main__":
     # Run in development mode to enable hot reloading.
-    winup.run(main_component=App, title="Hot Reload Demo", dev=True)
+    winup.run(main_component_path="my_app:App", title="Hot Reload Demo", dev=True)
 ```
 *This setup allows you to see UI changes instantly just by saving any file in your project.*
 
@@ -692,102 +712,8 @@ def App():
 
 if __name__ == "__main__":
     # You need to create the router files first for this to work.
-    # See the implementation details below.
     winup.run(main_component=App, title="Multi-Page App Demo")
 ```
-
-<details>
-<summary><b>Implementation: Click to see the code for router.py</b></summary>
-
-Since I had trouble creating the files, here is the code you can place in `winup/router/router.py`.
-
-```python
-# winup/router/router.py
-from typing import Dict, Callable
-import winup
-from winup import ui
-from winup.core.component import Component
-from winup.core.hot_reload import clear_layout
-
-class Router:
-    """Manages navigation and application state for different UI views."""
-    def __init__(self, routes: Dict[str, Callable[[], Component]]):
-        if not routes:
-            raise ValueError("Router must be initialized with at least one route.")
-        
-        self.routes = routes
-        initial_path = list(routes.keys())[0]
-        
-        # Use WinUp's state manager to make the current route reactive.
-        self.state = winup.state.create("router_current_path", initial_path)
-
-    def navigate(self, path: str):
-        """Navigates to the given path if it exists in the routes."""
-        if path in self.routes:
-            self.state.set(path)
-        else:
-            print(f"Error: Route '{path}' not found.")
-
-    def get_component_for_path(self, path: str) -> Callable[[], Component] | None:
-        """Returns the component factory for a given path."""
-        return self.routes.get(path)
-
-@winup.component
-def RouterView(router: Router) -> Component:
-    """
-    A component that displays the view for the current route.
-    It listens to route changes and updates its content automatically.
-    """
-    view_container = ui.Frame(props={"objectName": "router-view-container"})
-
-    def _update_view(path: str):
-        """Clears the container and renders the new component."""
-        component_factory = router.get_component_for_path(path)
-        if component_factory:
-            if view_container.layout() is not None:
-                clear_layout(view_container.layout())
-            
-            new_component = component_factory()
-            view_container.add_child(new_component)
-
-    router.state.subscribe(_update_view)
-    _update_view(router.state.get())
-
-    return view_container
-
-@winup.component
-def RouterLink(router: Router, to: str, text: str, props: Dict = None) -> Component:
-    """
-    A navigational component that triggers a route change on click.
-    """
-    def handle_click():
-        router.navigate(to)
-
-    link_props = {
-        "font-family": "Segoe UI",
-        "text-decoration": "none",
-        "color": "#0078D4",
-        "border": "none",
-        "background-color": "transparent",
-        "cursor": "PointingHandCursor",
-        "text-align": "left",
-        "padding": "0"
-    }
-    
-    if props:
-        link_props.update(props)
-
-    return ui.Button(text, on_click=handle_click, props=link_props)
-```
-
-And for `winup/router/__init__.py`:
-
-```python
-from .router import Router, RouterView, RouterLink
-
-__all__ = ["Router", "RouterView", "RouterLink"]
-```
-</details>
 
 ### Component Lifecycle Hooks: `on_mount` and `on_unmount`
 
